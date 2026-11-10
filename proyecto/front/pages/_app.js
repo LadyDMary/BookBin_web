@@ -1,11 +1,17 @@
 import Menu from '../components/Menu';
-import 'styles/styles.css';
+import { useRouter } from 'next/router';
 
-export default function App({ Component, pageProps}) {
+export default function App({ Component, pageProps }) {
+    const router = useRouter();
+
+    const ocultarMenu =
+        router.pathname === '/registro' ||
+        router.pathname === '/login';
+
     return (
         <>
-            <Menu />
+            {!ocultarMenu && <Menu />}
             <Component {...pageProps} />
         </>
-    )
+    );
 }

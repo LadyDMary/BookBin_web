@@ -1,0 +1,51 @@
+.menu {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 15px 30px;
+    background-color: #224A63;
+    color: white;
+    gap: 20px;
+}
+
+.logo {
+    margin: 0;
+    font-size: 24px;
+    color: white;
+}
+
+.menu a {
+    color: white;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.menu a:hover {
+    color: #D7E5EC;
+}
+
+.searchBox {
+    display: flex;
+    align-items: center;
+    background-color: white;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.searchBox input {
+    padding: 9px;
+    border: none;
+    outline: none;
+    width: 150px;
+}
+
+.searchButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 9px;
+    border: none;
+    background-color: #5885A1;
+    color: white;
+    cursor: pointer;
+}

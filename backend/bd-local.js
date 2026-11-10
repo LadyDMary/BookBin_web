@@ -1,11 +1,11 @@
 require('dotenv').config();
-const mysql = require('mysql/promise');
+const mysql = require('mysql2/promise');
 
 const pool = mysql.createPool({
     host:'localhost',
-    prot:'3306',
+    port:'3306',
     user:'root',
-    password:'n0m3l0',
+    password:'root',
     database:'bookbin',
     dateStrings:true
 })

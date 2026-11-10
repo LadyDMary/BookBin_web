@@ -7,8 +7,6 @@ export default function Creacion() {
     const router = useRouter();
     const {id} = router.query;
 
-   
-
     async function cargar() {
         
         const [errorCarga, setErrorCarga] = useState('');
