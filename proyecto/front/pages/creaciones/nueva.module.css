@@ -1,0 +1,226 @@
+.fondo {
+    min-height: calc(100vh - 68px);
+    background-color: #6B8797;
+    padding: 24px 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+}
+
+.tarjetaFormulario {
+    width: 100%;
+    max-width: 1160px;
+    background-color: #93A9B6;
+    border-radius: 22px;
+    padding: 22px 42px 28px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.titulo {
+    text-align: center;
+    color: #183648;
+    font-size: 28px;
+    margin: 0 0 4px;
+    font-weight: 700;
+}
+
+.inputNombre {
+    width: 100%;
+    padding: 10px 24px;
+    background-color: #D5E1E8;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    color: #183648;
+    outline: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+    box-sizing: border-box;
+}
+
+.filaMedia {
+    display: flex;
+    gap: 14px;
+    min-height: 155px;
+}
+
+.cajaImagen {
+    width: 280px;
+    min-width: 280px;
+    background-color: #D5E1E8;
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    position: relative;
+}
+
+.textoImagen {
+    font-size: 15px;
+    font-weight: 600;
+    color: #6B8797;
+    text-align: center;
+}
+
+.previewImagen {
+    width: 100%;
+    height: 115px;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.cajaDescripcion {
+    flex: 1;
+    background-color: #D5E1E8;
+    border-radius: 10px;
+    padding: 14px 18px;
+    border: none;
+    resize: none;
+    font-size: 15px;
+    font-family: inherit;
+    color: #183648;
+    outline: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+}
+
+.bloqueMateriales {
+    background-color: #D5E1E8;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+}
+
+.cabeceraMateriales {
+    padding: 8px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 700;
+    color: #183648;
+    border-bottom: 1px solid #9EB3C0;
+}
+
+.inputMateriales {
+    width: 100%;
+    padding: 8px 24px;
+    background-color: #D5E1E8;
+    border: none;
+    font-size: 15px;
+    color: #183648;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.cajaInstrucciones {
+    width: 100%;
+    min-height: 180px;
+    background-color: #D5E1E8;
+    border-radius: 10px;
+    padding: 14px 24px;
+    border: none;
+    resize: vertical;
+    font-size: 15px;
+    font-family: inherit;
+    color: #183648;
+    outline: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+    box-sizing: border-box;
+}
+
+.tarjetaAcciones {
+    width: 100%;
+    max-width: 1160px;
+    background-color: #93A9B6;
+    border-radius: 22px;
+    padding: 20px 42px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.filaBotones {
+    display: flex;
+    gap: 20px;
+}
+
+.botonBorrador {
+    flex: 1;
+    padding: 14px;
+    background-color: #183648;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+}
+
+.botonCancelar {
+    flex: 1;
+    padding: 14px;
+    background-color: #5D273A;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+}
+
+.botonPublicar {
+    width: 100%;
+    padding: 14px;
+    background-color: #485A66;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+}
+
+.botonPublicar:hover {
+    background-color: #183648;
+}
+.contenedorChipsMateriales {
+    padding: 12px 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    background-color: #D5E1E8;
+    border-radius: 0 0 10px 10px;
+}
+
+.chipMaterial {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid #183648;
+    background-color: #FFFFFF;
+    color: #183648;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.chipMaterial:hover {
+    background-color: #B6C7D1;
+}
+
+.chipSeleccionado {
+    background-color: #183648;
+    color: #FFFFFF;
+    border-color: #183648;
+}

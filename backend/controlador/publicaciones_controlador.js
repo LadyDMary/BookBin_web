@@ -1,18 +1,38 @@
+const fs = require('fs');
+const path = require('path');
 const Creacion = require('../modelo/publicacion_modelo');
+const Validacion = require('../validaciones');
 
-// Revisa que existan los campos y que quepan en la base de datos
-function datosValidos({ nombre, descripcion, instrucciones }) {
-    return Boolean(
-        nombre && descripcion && instrucciones &&
-        nombre.length <= 50 &&
-        descripcion.length <= 100 &&
-        instrucciones.length <= 500
-    );
+function leerMateriales(valor) {
+    if (!valor) return [];
+    try {
+        const lista = typeof valor === 'string' ? JSON.parse(valor) : valor;
+        if (Array.isArray(lista)) {
+            return [...new Set(lista.map(Number).filter(Number.isInteger))];
+        }
+    } catch {
+        return [];
+    }
+    return [];
+}
+
+function borrarImagenSubida(req) {
+    if (req && req.file) {
+        fs.unlink(req.file.path, () => {});
+    }
+}
+
+function borrarImagenPorRuta(rutaImagen) {
+    if (!rutaImagen) return;
+    const rutaAbsoluta = path.join(__dirname, '..', rutaImagen);
+    fs.unlink(rutaAbsoluta, () => {});
 }
 
 async function listarCreaciones(req, res) {
     try {
-        const creaciones = await Creacion.listarCreaciones();
+        const idMaterial = Number(req.query.material) || null;
+        const busqueda = (req.query.q || '').toString().trim();
+        const creaciones = await Creacion.listarCreaciones({ idMaterial, busqueda });
         res.json(creaciones);
     } catch (error) {
         console.error(error);
@@ -20,9 +40,29 @@ async function listarCreaciones(req, res) {
     }
 }
 
+async function listarCreacionesDeUsuario(req, res) {
+    const idUsuario = Number(req.params.idUsuario);
+    if (!Number.isInteger(idUsuario)) {
+        return res.status(400).json({ error: 'El id de usuario no es válido' });
+    }
+
+    try {
+        const creaciones = await Creacion.listarCreacionesDeUsuario(idUsuario);
+        res.json(creaciones);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'No se pudieron listar tus creaciones' });
+    }
+}
+
 async function obtenerCreacion(req, res) {
     try {
-        const creacion = await Creacion.obtenerCreacion(req.params.id);
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id)) {
+            return res.status(400).json({ error: 'El ID de la creación no es válido' });
+        }
+
+        const creacion = await Creacion.obtenerCreacion(id);
         if (!creacion) {
             return res.status(404).json({ error: 'No se encontró la creación' });
         }
@@ -34,109 +74,117 @@ async function obtenerCreacion(req, res) {
 }
 
 async function crearCreacion(req, res) {
-    const { nombre, descripcion, instrucciones, id_usuario } = req.body;
+    const nombre = (req.body.nombre || '').trim();
+    const descripcion = (req.body.descripcion || '').trim();
+    const instrucciones = (req.body.instrucciones || '').trim();
+    const idUsuario = Number(req.body.id_usuario);
+    const esBorrador = req.body.accion === 'borrador' || req.body.borrador === 'true' || req.body.borrador === true;
+    const idMateriales = leerMateriales(req.body.id_materiales || req.body.materiales);
 
-    if (!id_usuario || !datosValidos({ nombre, descripcion, instrucciones })) {
-        return res.status(400).json({
-            error: 'nombre (máx. 50), descripcion (máx. 100), instrucciones (máx. 500) e id_usuario son obligatorios',
-        });
+    const problema = Validacion.validarCamposCreacion({ nombre, descripcion, instrucciones }, esBorrador);
+    
+    if (problema || !Number.isInteger(idUsuario)) {
+        borrarImagenSubida(req);
+        return res.status(400).json({ error: problema || 'El id_usuario es obligatorio y debe ser numérico.' });
+    } if (!esBorrador && !req.file) {
+        return res.status(400).json({ error: 'Agrega una imagen para publicar la creación.' });
     }
-
     try {
         const nueva = await Creacion.crearCreacion({
             nombre,
             descripcion,
             instrucciones,
-            idUsuario: id_usuario,
+            idUsuario,
+            imagen: req.file ? `/uploads/${req.file.filename}` : null,
+            borrador: esBorrador ? 1 : 0,
+            idMateriales,
         });
-        res.status(201).json(nueva);
+        
+        return res.status(201).json(nueva);
     } catch (error) {
+        borrarImagenSubida(req);
         console.error(error);
-        res.status(500).json({ error: 'No se pudo crear la creación' });
+        return res.status(500).json({ error: 'No se pudo guardar la creación' });
     }
 }
 
 async function actualizarCreacion(req, res) {
-    const { id } = req.params;
-    const { nombre, descripcion, instrucciones } = req.body;
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+        return res.status(400).json({ error: 'ID de creación no válido' });
+    }
 
-    if (!datosValidos({ nombre, descripcion, instrucciones })) {
-        return res.status(400).json({
-            error: 'nombre (máx. 50), descripcion (máx. 100) e instrucciones (máx. 500) son obligatorios',
-        });
+    const nombre = (req.body.nombre || '').trim();
+    const descripcion = (req.body.descripcion || '').trim();
+    const instrucciones = (req.body.instrucciones || '').trim();
+
+    const problema = Validacion.validarCamposCreacion({ nombre, descripcion, instrucciones }, false);
+    if (problema) {
+        borrarImagenSubida(req);
+        return res.status(400).json({ error: problema });
     }
 
     try {
-        const actualizada = await Creacion.actualizarCreacion(id, { nombre, descripcion, instrucciones });
-        if (!actualizada) {
-            return res.status(404).json({ error: 'No se encontró la creación' });
+        const datosActualizar = { nombre, descripcion, instrucciones };
+        
+        // Si enviaron una nueva imagen en la edición
+        if (req.file) {
+            datosActualizar.imagen = `/uploads/${req.file.filename}`;
+            // Opcional: Obtener creación anterior y borrar su imagen vieja
+            const anterior = await Creacion.obtenerCreacion(id);
+            if (anterior && anterior.imagen) {
+                borrarImagenPorRuta(anterior.imagen);
+            }
         }
-        res.json({ id_creacion: Number(id), nombre, descripcion, instrucciones });
+
+        const actualizada = await Creacion.actualizarCreacion(id, datosActualizar);
+        if (!actualizada) {
+            borrarImagenSubida(req);
+            return res.status(404).json({ error: 'No se encontró la creación a actualizar' });
+        }
+
+        return res.json({ id_creacion: id, ...datosActualizar });
     } catch (error) {
+        borrarImagenSubida(req);
         console.error(error);
-        res.status(500).json({ error: 'No se pudo actualizar la creación' });
+        return res.status(500).json({ error: 'No se pudo actualizar la creación' });
     }
 }
 
 async function eliminarCreacion(req, res) {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+        return res.status(400).json({ error: 'ID de creación no válido' });
+    }
+
     try {
-        const eliminada = await Creacion.eliminarCreacion(req.params.id);
-        if (!eliminada) {
+        // 1. Obtener la creación para saber si tiene una imagen que debamos eliminar
+        const creacionExistente = await Creacion.obtenerCreacion(id);
+        if (!creacionExistente) {
             return res.status(404).json({ error: 'No se encontró la creación' });
         }
-        res.status(204).send();
+
+        // 2. Eliminar de la base de datos
+        const eliminada = await Creacion.eliminarCreacion(id);
+        if (!eliminada) {
+            return res.status(404).json({ error: 'No se pudo eliminar la creación de la base de datos' });
+        }
+
+        // 3. Borrar la imagen física en /uploads
+        if (creacionExistente.imagen) {
+            borrarImagenPorRuta(creacionExistente.imagen);
+        }
+
+        return res.status(204).send();
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'No se pudo eliminar la creación' });
+        return res.status(500).json({ error: 'No se pudo eliminar la creación' });
     }
 }
-
-/* ---------------------------------------------------------------
-PARA DESPUÉS: crear con imagen y materiales.
-Requiere: npm install multer, configurar multer en server.js,
-la columna `imagen` en mcreacion y la tabla materiales_creaciones.
-
-async function crearCreacionConMateriales(req, res) {
-    try {
-        const { nombre, descripcion, instrucciones, id_usuario, id_materiales } = req.body;
-
-        if (!req.file) {
-            return res.status(400).json({ error: 'La imagen de la creación es obligatoria.' });
-        }
-        const rutaImagen = `/uploads/${req.file.filename}`;
-
-        // Desde FormData, id_materiales puede llegar como texto JSON
-        let materialesArray = id_materiales;
-        if (typeof id_materiales === 'string') {
-            try {
-                materialesArray = JSON.parse(id_materiales);
-            } catch (e) {
-                materialesArray = [id_materiales];
-            }
-        }
-
-        const nuevaCreacion = await Creacion.crearCreacionConMateriales({
-            nombre,
-            descripcion,
-            instrucciones,
-            id_usuario,
-            id_materiales: materialesArray || [],
-            imagen: rutaImagen,
-        });
-
-        return res.status(201).json({
-            mensaje: 'Creación y materiales guardados con éxito',
-            data: nuevaCreacion,
-        });
-    } catch (error) {
-        console.error('Error al crear la publicación:', error);
-        return res.status(500).json({ error: 'Error interno del servidor al procesar la creación.' });
-    }
-}
---------------------------------------------------------------- */
 
 module.exports = {
     listarCreaciones,
+    listarCreacionesDeUsuario,
     obtenerCreacion,
     crearCreacion,
     actualizarCreacion,

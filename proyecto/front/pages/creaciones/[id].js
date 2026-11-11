@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { pedirJSON } from '../../lib/api';
+import styles from './nueva.module.css';
 
 export default function Creacion() {
     const router = useRouter();

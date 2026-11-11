@@ -1,0 +1,136 @@
+.fondo {
+    min-height: calc(100vh - 68px);
+    background-color: #6B8797;
+    padding: 24px 32px;
+    display: flex;
+    flex-direction: column;
+}
+
+.pestanas {
+    display: flex;
+    justify-content: space-around;
+    gap: 24px;
+    margin-bottom: 12px;
+}
+
+.pestana {
+    flex: 1;
+    max-width: 340px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+    background-color: #183648;
+    color: white;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s;
+}
+
+.pestanaActiva {
+    background-color: #7D98A8;
+    color: #183648;
+}
+
+.barraMateriales {
+    background-color: #B6C7D1;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.botonMateriales {
+    width: 100%;
+    padding: 8px 20px;
+    background: none;
+    border: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 16px;
+    font-weight: 700;
+    color: #183648;
+    cursor: pointer;
+}
+
+.listaChips {
+    padding: 8px 20px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    border-top: 1px solid #96AEBC;
+}
+
+.chip {
+    padding: 4px 12px;
+    border-radius: 16px;
+    border: 1px solid #183648;
+    background-color: #DCE6EC;
+    color: #183648;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.chipActivo {
+    background-color: #183648;
+    color: white;
+}
+
+.contenedorLista {
+    flex: 1;
+    background-color: #7590A0;
+    border: 2px solid #5B7686;
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    max-height: 68vh;
+    overflow-y: auto;
+}
+
+.contenedorLista::-webkit-scrollbar {
+    width: 24px;
+}
+
+.contenedorLista::-webkit-scrollbar-track {
+    background: #466475;
+    border-radius: 10px;
+}
+
+.contenedorLista::-webkit-scrollbar-thumb {
+    background: #183648;
+    border-radius: 10px;
+    border: 4px solid #466475;
+}
+
+.listaCreacion {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.contenedorBotonNueva {
+    display: flex;
+    justify-content: center;
+    margin-top: 32px;
+    margin-bottom: 12px;
+}
+
+.botonNuevaCreacion {
+    background-color: #183648;
+    color: white;
+    text-decoration: none;
+    padding: 14px 36px;
+    border-radius: 12px;
+    font-size: 24px;
+    font-weight: 700;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+    transition: background-color 0.2s;
+}
+
+.botonNuevaCreacion:hover {
+    background-color: #0F2431;
+}

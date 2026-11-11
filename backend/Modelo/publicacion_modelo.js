@@ -1,84 +1,130 @@
 const pool = require('../bd-local');
 
-async function listarCreaciones() {
-    const [rows] = await pool.query('SELECT * FROM mcreacion WHERE activo = 1');
-    return rows;
+// A una lista de creaciones le agrega su arreglo `materiales` ([{ id_materiales, nombre }])
+async function agregarMateriales(creaciones) {
+    if (creaciones.length === 0) return creaciones;
+
+    const ids = creaciones.map((c) => c.id_creacion);
+    const [filas] = await pool.query(
+        `SELECT mc.id_creacion, m.id_materiales, m.nombre FROM materiales_creaciones mc JOIN dmateriales m ON m.id_materiales = mc.id_materiales
+        WHERE mc.id_creacion IN (?) ORDER BY m.nombre`,
+        [ids]
+    );
+
+    return creaciones.map((c) => ({
+        ...c,
+        materiales: filas
+            .filter((f) => f.id_creacion === c.id_creacion)
+            .map((f) => ({ id_materiales: f.id_materiales, nombre: f.nombre })),
+    }));
+}
+
+// Pantalla de inicio (Recomendados): creaciones publicadas, con filtros opcionales
+async function listarCreaciones({ idMaterial, busqueda } = {}) {
+    const condiciones = ['c.activo = 1', 'c.borrador = 0'];
+    const valores = [];
+
+    if (idMaterial) {
+        condiciones.push(
+            `EXISTS (SELECT 1 FROM materiales_creaciones mc WHERE mc.id_creacion = c.id_creacion AND mc.id_materiales = ?)`
+        );
+        valores.push(idMaterial);
+    }
+
+    if (busqueda) {
+        condiciones.push('(c.nombre LIKE ? OR c.descripcion LIKE ?)');
+        valores.push(`%${busqueda}%`, `%${busqueda}%`);
+    }
+
+    const [rows] = await pool.query(
+        `SELECT c.id_creacion, c.nombre, c.descripcion, c.imagen, c.id_usuario FROM mcreacion c WHERE ${condiciones.join(' AND ')}
+        ORDER BY c.id_creacion DESC`,
+        valores
+    );
+    return agregarMateriales(rows);
+}
+
+// Pestaña "Mis creaciones": todas las del usuario, incluidos borradores
+async function listarCreacionesDeUsuario(idUsuario) {
+    const [rows] = await pool.query(
+        `SELECT c.id_creacion, c.nombre, c.descripcion, c.imagen, c.id_usuario, c.borrador, c.aprobado
+        FROM mcreacion c
+        WHERE c.activo = 1 AND c.id_usuario = ?
+        ORDER BY c.id_creacion DESC`,
+        [idUsuario]
+    );
+    return agregarMateriales(rows);
 }
 
 async function obtenerCreacion(id) {
-    const [rows] = await pool.query('SELECT * FROM mcreacion WHERE id_creacion = ? AND activo = 1', [id]);
-    return rows[0];
-}
-
-async function crearCreacion({ nombre, descripcion, instrucciones, idUsuario }) {
-    const [result] = await pool.query(
-        `INSERT INTO mcreacion (nombre, descripcion, instrucciones, activo, aprobado, id_usuario)
-        VALUES (?, ?, ?, 1, 0, ?)`,
-        [nombre, descripcion, instrucciones, idUsuario]
+    const [rows] = await pool.query(
+        'SELECT * FROM mcreacion WHERE id_creacion = ? AND activo = 1',
+        [id]
     );
-    return {
-        id_creacion: result.insertId,
-        nombre,
-        descripcion,
-        instrucciones,
-        activo: 1,
-        aprobado: 0,
-        id_usuario: idUsuario,
-    };
+    if (rows.length === 0) return undefined;
+    const [creacion] = await agregarMateriales(rows);
+    return creacion;
 }
 
-// PARA DESPUÉS: requiere la columna `imagen` en mcreacion y la tabla materiales_creaciones
-async function crearCreacionConMateriales({ nombre, descripcion, instrucciones, id_usuario, id_materiales, imagen }) {
-    const connection = await pool.getConnection();
+// Crea la creación y sus materiales en una sola transacción
+async function crearCreacion({ nombre, descripcion, instrucciones, idUsuario, imagen, borrador, idMateriales = [] }) {
+    const conexion = await pool.getConnection();
 
     try {
-        await connection.beginTransaction();
+        await conexion.beginTransaction();
 
-        // 1. Insertar la creación principal
-        const [resultCreacion] = await connection.query(
-            `INSERT INTO mcreacion (nombre, descripcion, instrucciones, activo, aprobado, id_usuario, imagen)
-            VALUES (?, ?, ?, 1, 0, ?, ?)`,
-            [nombre, descripcion, instrucciones, id_usuario, imagen]
+        const [resultado] = await conexion.query(
+            `INSERT INTO mcreacion (nombre, descripcion, instrucciones, activo, aprobado, id_usuario, imagen, borrador)
+            VALUES (?, ?, ?, 1, 0, ?, ?, ?)`,
+            [nombre, descripcion, instrucciones, idUsuario, imagen, borrador]
         );
+        const idCreacion = resultado.insertId;
 
-        const idCreacion = resultCreacion.insertId;
-
-        // 2. Insertar los materiales seleccionados en la tabla puente
-        if (id_materiales && id_materiales.length > 0) {
-            const valoresMateriales = id_materiales.map((idMaterial) => [idCreacion, idMaterial]);
-
-            await connection.query(
-                `INSERT INTO materiales_creaciones (id_creacion, id_materiales) VALUES ?`,
+        // Inserción segura de materiales
+        if (Array.isArray(idMateriales) && idMateriales.length > 0) {
+            const valoresMateriales = idMateriales.map((idMaterial) => [idCreacion, idMaterial]);
+            await conexion.query(
+                'INSERT INTO materiales_creaciones (id_creacion, id_materiales) VALUES ?',
                 [valoresMateriales]
             );
         }
 
-        await connection.commit();
+        await conexion.commit();
 
         return {
             id_creacion: idCreacion,
             nombre,
             descripcion,
             instrucciones,
-            activo: 1,
-            aprobado: 0,
-            id_usuario,
             imagen,
-            id_materiales: id_materiales || [],
+            borrador,
+            aprobado: 0,
+            id_usuario: idUsuario,
+            id_materiales: idMateriales,
         };
     } catch (error) {
-        await connection.rollback();
+        await conexion.rollback();
         throw error;
     } finally {
-        connection.release();
+        conexion.release();
     }
 }
 
-async function actualizarCreacion(id, { nombre, descripcion, instrucciones }) {
+// Soporta actualización de nombre, descripción, instrucciones e imagen (si se proporciona)
+async function actualizarCreacion(id, { nombre, descripcion, instrucciones, imagen }) {
+    const campos = ['nombre = ?', 'descripcion = ?', 'instrucciones = ?'];
+    const valores = [nombre, descripcion, instrucciones];
+
+    if (imagen !== undefined) {
+        campos.push('imagen = ?');
+        valores.push(imagen);
+    }
+
+    valores.push(id);
+
     const [result] = await pool.query(
-        `UPDATE mcreacion SET nombre = ?, descripcion = ?, instrucciones = ?
-        WHERE id_creacion = ? AND activo = 1`,
-        [nombre, descripcion, instrucciones, id]
+        `UPDATE mcreacion SET ${campos.join(', ')} WHERE id_creacion = ? AND activo = 1`,
+        valores
     );
     return result.affectedRows > 0;
 }
@@ -93,9 +139,9 @@ async function eliminarCreacion(id) {
 
 module.exports = {
     listarCreaciones,
+    listarCreacionesDeUsuario,
     obtenerCreacion,
     crearCreacion,
-    crearCreacionConMateriales,
     actualizarCreacion,
     eliminarCreacion,
 };
