@@ -1,17 +1,10 @@
 const pool = require('../bd-supabase');
-/*
-async function listarMateriales() {
-    const [rows] = await pool.query(
-        'SELECT id_materiales, nombre FROM dmateriales ORDER BY nombre'
+
+async function obtenerMateriales() {
+    const { rows } = await pool.query(
+        'SELECT id_materiales, nombre FROM dmateriales ORDER BY nombre ASC'
     );
     return rows;
 }
-    */
-async function obtenerMateriales() {
-    const [filas] = await pool.query(
-        'SELECT id_materiales, nombre FROM dmateriales ORDER BY nombre ASC'
-    );
-    return filas;
-}
 
-module.exports = {obtenerMateriales };
+module.exports = { obtenerMateriales };
