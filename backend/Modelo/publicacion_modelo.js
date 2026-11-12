@@ -1,4 +1,4 @@
-const pool = require('../bd-local');
+const pool = require('../bd-supabase');
 
 // A una lista de creaciones le agrega su arreglo `materiales` ([{ id_materiales, nombre }])
 async function agregarMateriales(creaciones) {

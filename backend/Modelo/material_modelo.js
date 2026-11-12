@@ -1,4 +1,4 @@
-const pool = require('../bd-local');
+const pool = require('../bd-supabase');
 /*
 async function listarMateriales() {
     const [rows] = await pool.query(

@@ -1,4 +1,4 @@
-const pool = require('../bd-local');
+const pool = require('../bd-supabase');
 
 // ---------- Usuarios (tabla musuarios, llave id_usuario) ----------
 
