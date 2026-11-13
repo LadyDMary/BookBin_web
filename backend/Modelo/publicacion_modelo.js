@@ -1,136 +1,138 @@
-const pool = require('../bd-supabase');
+const supabase = require('../bd-supabase');
 
-// A una lista de creaciones le agrega su arreglo `materiales` ([{ id_materiales, nombre }])
-async function agregarMateriales(creaciones) {
-    if (creaciones.length === 0) return creaciones;
-
-    const ids = creaciones.map((c) => c.id_creacion);
-    const { rows: filas } = await pool.query(
-        `SELECT mc.id_creacion, m.id_materiales, m.nombre FROM materiales_creaciones mc JOIN dmateriales m ON m.id_materiales = mc.id_materiales
-        WHERE mc.id_creacion = ANY($1::int[]) ORDER BY m.nombre`,
-        [ids]
-    );
-
-    return creaciones.map((c) => ({
-        ...c,
-        materiales: filas
-            .filter((f) => f.id_creacion === c.id_creacion)
-            .map((f) => ({ id_materiales: f.id_materiales, nombre: f.nombre })),
-    }));
+function formatearCreaciones(filas) {
+    return filas.map((c) => {
+        const materiales = (c.materiales_creaciones || [])
+            .map((rel) => rel.dmateriales)
+            .filter(Boolean);
+        const { materiales_creaciones, ...resto } = c;
+        return { ...resto, materiales };
+    });
 }
 
-// Pantalla de inicio (Recomendados): creaciones publicadas, con filtros opcionales
 async function listarCreaciones({ idMaterial, busqueda } = {}) {
-    const condiciones = ['c.activo = 1', 'c.borrador = 0'];         
-    const valores = [];
+    let query = supabase
+        .from('mcreacion')
+        .select(`
+            id_creacion, nombre, descripcion, imagen, id_usuario, aprovado,
+            materiales_creaciones${idMaterial ? '!inner' : ''} (
+                id_materiales,
+                dmateriales ( id_materiales, nombre, descripcion, codigo )
+            )
+        `)
+        .eq('activo', 1)
+        .eq('borrador', 0)
+        .order('id_creacion', { ascending: false });
 
     if (idMaterial) {
-        valores.push(idMaterial);
-        condiciones.push(
-            `EXISTS (SELECT 1 FROM materiales_creaciones mc WHERE mc.id_creacion = c.id_creacion AND mc.id_materiales = $${valores.length})`
-        );
+        query = query.eq('materiales_creaciones.id_materiales', idMaterial);
     }
 
     if (busqueda) {
-        valores.push(`%${busqueda}%`);
-        // ILIKE: en MySQL LIKE no distinguía mayúsculas; en Postgres sí, así se conserva el comportamiento
-        condiciones.push(`(c.nombre ILIKE $${valores.length} OR c.descripcion ILIKE $${valores.length})`);
+        query = query.or(`nombre.ilike.%${busqueda}%,descripcion.ilike.%${busqueda}%`);
     }
 
-    const { rows } = await pool.query(
-        `SELECT c.id_creacion, c.nombre, c.descripcion, c.imagen, c.id_usuario FROM mcreacion c WHERE ${condiciones.join(' AND ')}
-        ORDER BY c.id_creacion DESC`,
-        valores
-    );
-    return agregarMateriales(rows);
+    const { data, error } = await query;
+    if (error) throw error;
+    return formatearCreaciones(data);
 }
 
-// Pestaña "Mis creaciones": todas las del usuario, incluidos borradores
 async function listarCreacionesDeUsuario(idUsuario) {
-    const { rows } = await pool.query(
-        `SELECT c.id_creacion, c.nombre, c.descripcion, c.imagen, c.id_usuario, c.borrador, c.aprobado
-        FROM mcreacion c
-        WHERE c.activo = 1 AND c.id_usuario = $1
-        ORDER BY c.id_creacion DESC`,
-        [idUsuario]
-    );
-    return agregarMateriales(rows);
+    const { data, error } = await supabase
+        .from('mcreacion')
+        .select(`
+            id_creacion, nombre, descripcion, imagen, id_usuario, borrador, aprovado,
+            materiales_creaciones (
+                dmateriales ( id_materiales, nombre, descripcion, codigo )
+            )
+        `)
+        .eq('activo', 1)
+        .eq('id_usuario', idUsuario)
+        .order('id_creacion', { ascending: false });
+
+    if (error) throw error;
+    return formatearCreaciones(data);
 }
 
 async function obtenerCreacion(id) {
-    const { rows } = await pool.query(
-        'SELECT * FROM mcreacion WHERE id_creacion = $1 AND activo = 1',
-        [id]
-    );
-    if (rows.length === 0) return undefined;
-    const [creacion] = await agregarMateriales(rows);
-    return creacion;
+    const { data, error } = await supabase
+        .from('mcreacion')
+        .select(`
+            *,
+            materiales_creaciones (
+                dmateriales ( id_materiales, nombre, descripcion, codigo )
+            )
+        `)
+        .eq('id_creacion', id)
+        .eq('activo', 1)
+        .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return undefined;
+    return formatearCreaciones([data])[0];
 }
 
-// Crea la creación y sus materiales en una sola transacción
 async function crearCreacion({ nombre, descripcion, instrucciones, idUsuario, imagen, borrador, idMateriales = [] }) {
-    const conexion = await pool.connect();
-    try {
-        await conexion.query('BEGIN');
-        const { rows } = await conexion.query(
-            `INSERT INTO mcreacion (nombre, descripcion, instrucciones, activo, aprobado, id_usuario, imagen, borrador)
-            VALUES ($1, $2, $3, 1, 0, $4, $5, $6)
-            RETURNING id_creacion`,
-            [nombre, descripcion, instrucciones, idUsuario, imagen, borrador]
-        );
-        const idCreacion = rows[0].id_creacion;
-        // Inserción segura de materiales (un solo INSERT con el arreglo de ids)
-        if (Array.isArray(idMateriales) && idMateriales.length > 0) {
-            await conexion.query(
-                'INSERT INTO materiales_creaciones (id_creacion, id_materiales) SELECT $1, UNNEST($2::int[])',
-                [idCreacion, idMateriales]
-            );
-        }
-        await conexion.query('COMMIT');
-        return {
-            id_creacion: idCreacion,
+    const { data: nueva, error } = await supabase
+        .from('mcreacion')
+        .insert([{
             nombre,
             descripcion,
             instrucciones,
+            activo: 1,
+            aprovado: 0,
+            id_usuario: idUsuario,
             imagen,
             borrador,
-            aprobado: 0,
-            id_usuario: idUsuario,
-            id_materiales: idMateriales,
-        };
-    } catch (error) {
-        await conexion.query('ROLLBACK');
-        throw error;
-    } finally {
-        conexion.release();
+        }])
+        .select()
+        .single();
+
+    if (error) throw error;
+
+    if (Array.isArray(idMateriales) && idMateriales.length > 0) {
+        const filasMateriales = idMateriales.map((idMaterial) => ({
+            id_creacion: nueva.id_creacion,
+            id_materiales: idMaterial,
+        }));
+        const { error: errorMat } = await supabase
+            .from('materiales_creaciones')
+            .insert(filasMateriales);
+
+        if (errorMat) throw errorMat;
     }
+
+    return {
+        ...nueva,
+        id_materiales: idMateriales,
+    };
 }
 
-// Soporta actualización de nombre, descripción, instrucciones e imagen (si se proporciona)
 async function actualizarCreacion(id, { nombre, descripcion, instrucciones, imagen }) {
-    const valores = [nombre, descripcion, instrucciones];
-    const campos = ['nombre = $1', 'descripcion = $2', 'instrucciones = $3'];
+    const cambios = { nombre, descripcion, instrucciones };
+    if (imagen !== undefined) cambios.imagen = imagen;
 
-    if (imagen !== undefined) {
-        valores.push(imagen);
-        campos.push(`imagen = $${valores.length}`);
-    }
+    const { data, error } = await supabase
+        .from('mcreacion')
+        .update(cambios)
+        .eq('id_creacion', id)
+        .eq('activo', 1)
+        .select();
 
-    valores.push(id);
-
-    const result = await pool.query(
-        `UPDATE mcreacion SET ${campos.join(', ')} WHERE id_creacion = $${valores.length} AND activo = 1`,
-        valores
-    );
-    return result.rowCount > 0;
+    if (error) throw error;
+    return data.length > 0;
 }
 
 async function eliminarCreacion(id) {
-    const result = await pool.query(
-        'UPDATE mcreacion SET activo = 0 WHERE id_creacion = $1 AND activo = 1',
-        [id]
-    );
-    return result.rowCount > 0;
+    const { data, error } = await supabase
+        .from('mcreacion')
+        .update({ activo: 0 })
+        .eq('id_creacion', id)
+        .eq('activo', 1)
+        .select();
+
+    if (error) throw error;
+    return data.length > 0;
 }
 
 module.exports = {

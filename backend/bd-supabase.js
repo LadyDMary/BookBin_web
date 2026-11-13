@@ -1,13 +1,10 @@
-require('dotenv').config();
-const { Pool, types } = require('pg');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+const { createClient } = require('@supabase/supabase-js');
 
-// bigint (int8) llega como texto por defecto; lo pasamos a número
-types.setTypeParser(20, (v) => Number(v));
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SECRET_KEY
+);
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-    max: 10,
-});
-
-module.exports = pool;
+module.exports = supabase;

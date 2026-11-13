@@ -1,93 +1,144 @@
-const pool = require('../bd-supabase');
-
-// Arma "col = $1, col2 = $2" para un UPDATE, solo con las columnas permitidas y definidas
-function armarCambios(datos) {
-    const cambios = Object.entries(datos).filter(([, v]) => v !== undefined);
-    return {
-        vacio: cambios.length === 0,
-        columnas: cambios.map(([c], i) => `${c} = $${i + 1}`).join(', '),
-        valores: cambios.map(([, v]) => v),
-    };
-}
+const supabase = require('../bd-supabase');
 
 // ---------- Usuarios (tabla musuarios, llave id_usuario) ----------
 
 async function obtenerUsuarioPorId(id) {
-    const { rows } = await pool.query('SELECT * FROM musuarios WHERE id_usuario = $1', [id]);
-    return rows[0];
+    const { data, error } = await supabase
+        .from('musuarios')
+        .select('*')
+        .eq('id_usuario', id)
+        .maybeSingle();
+
+    if (error) throw error;
+    return data;
 }
 
 async function obtenerUsuarioPorCorreo(correo) {
-    const { rows } = await pool.query('SELECT * FROM musuarios WHERE correo = $1', [correo]);
-    return rows[0];
+    const { data, error } = await supabase
+        .from('musuarios')
+        .select('*')
+        .eq('correo', correo)
+        .maybeSingle();
+
+    if (error) throw error;
+    return data;
 }
 
 async function crearUsuario({ nombre, correo, contrasena }) {
-    const { rows } = await pool.query(
-        'INSERT INTO musuarios (nombre, correo, contrasena, activo) VALUES ($1, $2, $3, 1) RETURNING *',
-        [nombre, correo, contrasena]
-    );
-    return rows[0];
+    const { data, error } = await supabase
+        .from('musuarios')
+        .insert([{ nombre, correo, contrasena, activo: 1 }])
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
 }
 
 async function actualizarUsuario(id, { nombre, correo, contrasena }) {
-    const { vacio, columnas, valores } = armarCambios({ nombre, correo, contrasena });
-    if (vacio) return obtenerUsuarioPorId(id);
-    const { rows } = await pool.query(
-        `UPDATE musuarios SET ${columnas} WHERE id_usuario = $${valores.length + 1} RETURNING *`,
-        [...valores, id]
-    );
-    return rows[0];
+    const cambios = {};
+    if (nombre !== undefined) cambios.nombre = nombre;
+    if (correo !== undefined) cambios.correo = correo;
+    if (contrasena !== undefined) cambios.contrasena = contrasena;
+
+    if (Object.keys(cambios).length === 0) return obtenerUsuarioPorId(id);
+
+    const { data, error } = await supabase
+        .from('musuarios')
+        .update(cambios)
+        .eq('id_usuario', id)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
 }
 
 // ---------- Verificador (tabla mverificador, llave id_verificador) ----------
 
 async function obtenerVerificadorPorId(id) {
-    const { rows } = await pool.query('SELECT * FROM mverificador WHERE id_verificador = $1', [id]);
-    return rows[0];
+    const { data, error } = await supabase
+        .from('mverificador')
+        .select('*')
+        .eq('id_verificador', id)
+        .maybeSingle();
+
+    if (error) throw error;
+    return data;
 }
 
 async function crearVerificador({ nombre, correo, contrasena, rol, id_administrador }) {
-    const { rows } = await pool.query(
-        'INSERT INTO mverificador (nombre, correo, contrasena, activo, rol, id_administrador) VALUES ($1, $2, $3, 1, $4, $5) RETURNING *',
-        [nombre, correo, contrasena, rol, id_administrador]
-    );
-    return rows[0];
+    const { data, error } = await supabase
+        .from('mverificador')
+        .insert([{ nombre, correo, contrasena, activo: 1, rol, id_administrador }])
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
 }
 
 async function actualizarVerificador(id, { nombre, correo, contrasena, rol }) {
-    const { vacio, columnas, valores } = armarCambios({ nombre, correo, contrasena, rol });
-    if (vacio) return obtenerVerificadorPorId(id);
-    const { rows } = await pool.query(
-        `UPDATE mverificador SET ${columnas} WHERE id_verificador = $${valores.length + 1} RETURNING *`,
-        [...valores, id]
-    );
-    return rows[0];
+    const cambios = {};
+    if (nombre !== undefined) cambios.nombre = nombre;
+    if (correo !== undefined) cambios.correo = correo;
+    if (contrasena !== undefined) cambios.contrasena = contrasena;
+    if (rol !== undefined) cambios.rol = rol;
+
+    if (Object.keys(cambios).length === 0) return obtenerVerificadorPorId(id);
+
+    const { data, error } = await supabase
+        .from('mverificador')
+        .update(cambios)
+        .eq('id_verificador', id)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
 }
 
 // ---------- Administrador (tabla madministrador, llave id_administrador) ----------
 
 async function obtenerAdministradorPorId(id) {
-    const { rows } = await pool.query('SELECT * FROM madministrador WHERE id_administrador = $1', [id]);
-    return rows[0];
+    const { data, error } = await supabase
+        .from('madministrador')
+        .select('*')
+        .eq('id_administrador', id)
+        .maybeSingle();
+
+    if (error) throw error;
+    return data;
 }
 
 async function crearAdministrador({ nombre, correo, contrasena }) {
-    const { rows } = await pool.query(
-        'INSERT INTO madministrador (nombre, correo, contrasena, activo) VALUES ($1, $2, $3, 1) RETURNING *',
-        [nombre, correo, contrasena]
-    );
-    return rows[0];
+    const { data, error } = await supabase
+        .from('madministrador')
+        .insert([{ nombre, correo, contrasena, activo: 1 }])
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
 }
 
 async function actualizarAdministrador(id, { nombre, correo, contrasena }) {
-    const { vacio, columnas, valores } = armarCambios({ nombre, correo, contrasena });
-    if (vacio) return obtenerAdministradorPorId(id);
-    const { rows } = await pool.query(
-        `UPDATE madministrador SET ${columnas} WHERE id_administrador = $${valores.length + 1} RETURNING *`,
-        [...valores, id]
-    );
-    return rows[0];
+    const cambios = {};
+    if (nombre !== undefined) cambios.nombre = nombre;
+    if (correo !== undefined) cambios.correo = correo;
+    if (contrasena !== undefined) cambios.contrasena = contrasena;
+
+    if (Object.keys(cambios).length === 0) return obtenerAdministradorPorId(id);
+
+    const { data, error } = await supabase
+        .from('madministrador')
+        .update(cambios)
+        .eq('id_administrador', id)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
 }
 
 module.exports = {

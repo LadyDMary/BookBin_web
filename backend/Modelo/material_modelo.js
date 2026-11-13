@@ -1,10 +1,13 @@
-const pool = require('../bd-supabase');
+const supabase = require('../bd-supabase');
 
 async function obtenerMateriales() {
-    const { rows } = await pool.query(
-        'SELECT id_materiales, nombre FROM dmateriales ORDER BY nombre ASC'
-    );
-    return rows;
+    const { data, error } = await supabase
+        .from('dmateriales')
+        .select('id_materiales, nombre, descripcion, codigo')
+        .order('nombre', { ascending: true });
+
+    if (error) throw error;
+    return data;
 }
 
 module.exports = { obtenerMateriales };
