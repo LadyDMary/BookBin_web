@@ -111,39 +111,61 @@ async function crearCreacion(req, res) {
 async function actualizarCreacion(req, res) {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
+        borrarImagenSubida(req);
         return res.status(400).json({ error: 'ID de creación no válido' });
     }
-
-    const nombre = (req.body.nombre || '').trim();
-    const descripcion = (req.body.descripcion || '').trim();
-    const instrucciones = (req.body.instrucciones || '').trim();
-
-    const problema = Validacion.validarCamposCreacion({ nombre, descripcion, instrucciones }, false);
-    if (problema) {
-        borrarImagenSubida(req);
-        return res.status(400).json({ error: problema });
+    // 1. Guardar solo los campos que el usuario realmente envió
+    const cambios = {};
+    if (req.body.nombre !== undefined) {
+        const nombreLimpio = String(req.body.nombre).trim();
+        if (!nombreLimpio || nombreLimpio.length > 100) {
+            borrarImagenSubida(req);
+            return res.status(400).json({ error: 'El nombre debe tener entre 1 y 100 caracteres.' });
+        }
+        cambios.nombre = nombreLimpio;
     }
-
+    if (req.body.descripcion !== undefined) {
+        const descLimpia = String(req.body.descripcion).trim();
+        if (!descLimpia) {
+            borrarImagenSubida(req);
+            return res.status(400).json({ error: 'La descripción no puede quedar vacía.' });
+        }
+        cambios.descripcion = descLimpia;
+    }
+    if (req.body.instrucciones !== undefined) {
+        const instLimpias = String(req.body.instrucciones).trim();
+        if (!instLimpias) {
+            borrarImagenSubida(req);
+            return res.status(400).json({ error: 'Las instrucciones no pueden quedar vacías.' });
+        }
+        cambios.instrucciones = instLimpias;
+    }
+    if (req.file) {
+        cambios.imagen = `/uploads/${req.file.filename}`;
+    }
+    // 2. Si no enviaron ningún campo ni imagen, detener aquí
+    if (Object.keys(cambios).length === 0) {
+        return res.status(400).json({ error: 'No enviaste ningún dato para actualizar.' });
+    }
     try {
-        const datosActualizar = { nombre, descripcion, instrucciones };
-        
-        // Si enviaron una nueva imagen en la edición
+        // Si subieron imagen nueva, borrar la anterior del servidor
         if (req.file) {
-            datosActualizar.imagen = `/uploads/${req.file.filename}`;
-            // Opcional: Obtener creación anterior y borrar su imagen vieja
             const anterior = await Creacion.obtenerCreacion(id);
-            if (anterior && anterior.imagen) {
+            if (!anterior) {
+                borrarImagenSubida(req);
+                return res.status(404).json({ error: 'No se encontró la creación a actualizar' });
+            }
+            if (anterior.imagen) {
                 borrarImagenPorRuta(anterior.imagen);
             }
         }
-
-        const actualizada = await Creacion.actualizarCreacion(id, datosActualizar);
+        // 3. Enviar solo el objeto `cambios` al modelo
+        const actualizada = await Creacion.actualizarCreacion(id, cambios);
         if (!actualizada) {
             borrarImagenSubida(req);
             return res.status(404).json({ error: 'No se encontró la creación a actualizar' });
         }
-
-        return res.json({ id_creacion: id, ...datosActualizar });
+        return res.json({ id_creacion: id, ...cambios });
     } catch (error) {
         borrarImagenSubida(req);
         console.error(error);
