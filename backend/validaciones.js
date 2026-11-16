@@ -36,11 +36,20 @@ function validarCamposCreacion({ nombre, descripcion, instrucciones }, esBorrado
     }
     return null;
 }
+const MOTIVOS_REPORTE = ['inapropiado', 'spam', 'peligroso', 'plagio', 'otro'];
+
+function validarReporte({ motivo, detalle }) {
+    if (!MOTIVOS_REPORTE.includes(motivo)) return 'Selecciona un motivo válido.';
+    if (detalle.length < 10) return 'Explica qué incumple (mínimo 10 caracteres).';
+    if (detalle.length > 300) return 'La explicación no puede pasar de 300 caracteres.';
+    return null;
+}
 
 module.exports = { 
     validarCorreo,
     validarNombreUsuario,
     validarContrasena, 
     validarContrasenaSegura, 
-    validarCamposCreacion 
+    validarCamposCreacion,
+    validarReporte,
 };
