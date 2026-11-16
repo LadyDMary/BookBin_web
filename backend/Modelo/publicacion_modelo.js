@@ -24,9 +24,10 @@ async function listarCreaciones({ idMaterial, busqueda } = {}) {
         .eq('borrador', 0)
         .order('id_creacion', { ascending: false });
 
-    if (idMaterial) {
-        query = query.eq('materiales_creaciones.id_materiales', idMaterial);
-    }
+    if (busqueda) {
+    const texto = busqueda.replace(/[\\"]/g, '\\$&');
+    query = query.or(`nombre.ilike."%${texto}%",descripcion.ilike."%${texto}%"`);
+}
 
     if (busqueda) {
         query = query.or(`nombre.ilike.%${busqueda}%,descripcion.ilike.%${busqueda}%`);
