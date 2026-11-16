@@ -9,6 +9,7 @@ const controladorPublicaciones = require('./controlador/publicaciones_controlado
 const controladorMateriales = require('./controlador/material_controlador');
 const controladorUsuario = require('./controlador/usuario_controlador');
 const controladorReportes = require('./controlador/reporte_controlador');
+const controladorFavoritos = require('./controlador/favorito_controlador');
 
 const app = express();
 
@@ -35,6 +36,11 @@ app.post('/api/login', controladorUsuario.iniciarSesion);
 
 //reportes
 app.post('/api/creaciones/:id/reportes', controladorReportes.crearReporte);
+
+//favoritos
+app.get('/api/guardados/:idUsuario', favoritoControlador.listarFavoritos);
+app.post('/api/guardados', favoritoControlador.guardarFavorito);
+app.delete('/api/guardados', favoritoControlador.eliminarFavorito);
 
 //Edicion de datos de usuarios
 app.put('/api/usuarios/:id', controladorUsuario.actualizarPerfil);
