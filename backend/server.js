@@ -8,8 +8,10 @@ const subida = require('./middleware/subida');
 const controladorPublicaciones = require('./controlador/publicaciones_controlador');
 const controladorMateriales = require('./controlador/material_controlador');
 const controladorUsuario = require('./controlador/usuario_controlador');
+const controladorReportes = require('./controlador/reporte_controlador');
 
 const app = express();
+
 
 app.use(express.json());
 
@@ -30,6 +32,9 @@ app.get('/api/materiales', controladorMateriales.listarMateriales);
 // Usuarios
 app.post('/api/registrar', controladorUsuario.registrar);
 app.post('/api/login', controladorUsuario.iniciarSesion);
+
+//reportes
+app.post('/api/creaciones/:id/reportes', controladorReportes.crearReporte);
 
 //Edicion de datos de usuarios
 app.put('/api/usuarios/:id', controladorUsuario.actualizarPerfil);
