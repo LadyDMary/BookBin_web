@@ -31,7 +31,7 @@ function borrarImagenPorRuta(rutaImagen) {
 async function listarCreaciones(req, res) {
     try {
         const idMaterial = Number(req.query.material) || null;
-        const busqueda = (req.query.q || '').toString().trim();
+        const busqueda = (req.query.q || '').toString().trim().slice(0, 50);
         const creaciones = await Creacion.listarCreaciones({ idMaterial, busqueda });
         res.json(creaciones);
     } catch (error) {
