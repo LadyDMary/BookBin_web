@@ -134,7 +134,31 @@ async function eliminarCreacion(id) {
     if (error) throw error;
     return data.length > 0;
 }
+//buscar publicacion
+async function buscarCreacionesPorNombre(nombre) {
+    const termino = String(nombre || '').trim();
+    if (!termino) return [];
 
+    // Escapa % y _ para que se busquen como texto literal
+    const patron = `%${termino.replace(/[\\%_]/g, '\\$&')}%`;
+
+    const { data, error } = await supabase
+        .from('mcreacion')
+        .select(`
+            id_creacion, nombre, descripcion, imagen, id_usuario, aprovado,
+            materiales_creaciones (
+                id_materiales,
+                dmateriales ( id_materiales, nombre, descripcion, codigo )
+            )
+        `)
+        .eq('activo', 1)
+        .eq('borrador', 0)
+        .ilike('nombre', patron)
+        .order('id_creacion', { ascending: false });
+
+    if (error) throw error;
+    return formatearCreaciones(data);
+}
 module.exports = {
     listarCreaciones,
     listarCreacionesDeUsuario,
@@ -142,4 +166,5 @@ module.exports = {
     crearCreacion,
     actualizarCreacion,
     eliminarCreacion,
+    buscarCreacionesPorNombre,
 };
