@@ -109,8 +109,13 @@ async function crearCreacion({ nombre, descripcion, instrucciones, idUsuario, im
 }
 
 async function actualizarCreacion(id, { nombre, descripcion, instrucciones, imagen }) {
-    const cambios = { nombre, descripcion, instrucciones };
+    const cambios = {};
+    if (nombre !== undefined) cambios.nombre = nombre;
+    if (descripcion !== undefined) cambios.descripcion = descripcion;
+    if (instrucciones !== undefined) cambios.instrucciones = instrucciones;
     if (imagen !== undefined) cambios.imagen = imagen;
+
+    if (Object.keys(cambios).length === 0) return false;
 
     const { data, error } = await supabase
         .from('mcreacion')
