@@ -203,6 +203,23 @@ async function eliminarCreacion(req, res) {
         return res.status(500).json({ error: 'No se pudo eliminar la creación' });
     }
 }
+const creacionesModel = require('../modelos/creaciones');
+
+async function buscarPorNombre(req, res) {
+    try {
+        const { nombre } = req.query;
+        if (!nombre || !nombre.trim()) {
+            return res.status(400).json({ error: 'Debes indicar un nombre para buscar' });
+        }
+        const creaciones = await creacionesModel.buscarCreacionesPorNombre(nombre);
+        res.json(creaciones);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al buscar las creaciones' });
+    }
+}
+
+
 
 module.exports = {
     listarCreaciones,
@@ -211,4 +228,5 @@ module.exports = {
     crearCreacion,
     actualizarCreacion,
     eliminarCreacion,
+    buscarPorNombre,
 };
