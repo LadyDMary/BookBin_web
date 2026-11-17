@@ -1,4 +1,4 @@
-const Reporte = require('../Modelo/reporte_modelo');
+const Reporte = require('../modelo/reporte_modelo');
 const Creacion = require('../modelo/publicacion_modelo');
 const { validarReporte } = require('../validaciones');
 
