@@ -22,7 +22,7 @@ async function obtenerFavoritos(idUsuario) {
 
     if (error) throw error;
 
-    // Acomoda cada creación para que TargetaCreacion.js pueda mostrar su foto, nombre y materiales
+    // Acomoda cada creación para que tarjeta.js pueda mostrar su foto, nombre y materiales
     return data.map((fav) => {
         const c = fav.mcreacion;
         const materiales = (c.materiales_creaciones || [])
