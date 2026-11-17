@@ -203,7 +203,6 @@ async function eliminarCreacion(req, res) {
         return res.status(500).json({ error: 'No se pudo eliminar la creación' });
     }
 }
-const creacionesModel = require('../modelos/creaciones');
 
 async function buscarPorNombre(req, res) {
     try {
@@ -211,7 +210,7 @@ async function buscarPorNombre(req, res) {
         if (!nombre || !nombre.trim()) {
             return res.status(400).json({ error: 'Debes indicar un nombre para buscar' });
         }
-        const creaciones = await creacionesModel.buscarCreacionesPorNombre(nombre);
+        const creaciones = await Creacion.buscarCreacionesPorNombre(nombre);
         res.json(creaciones);
     } catch (error) {
         console.error(error);
