@@ -38,9 +38,9 @@ app.post('/api/login', controladorUsuario.iniciarSesion);
 app.post('/api/creaciones/:id/reportes', controladorReportes.crearReporte);
 
 //favoritos
-app.get('/api/guardados/:idUsuario', controladorFavoritos.listarFavoritos);
-app.post('/api/guardados', controladorFavoritos.guardarFavorito);
-app.delete('/api/guardados', controladorFavoritos.eliminarFavorito);
+app.get('/api/favoritos/:idUsuario', controladorFavoritos.listarFavoritos);
+app.post('/api/favoritos', controladorFavoritos.guardarFavorito);
+app.delete('/api/favoritos', controladorFavoritos.eliminarFavorito);
 
 //Edicion de datos de usuarios
 app.put('/api/usuarios/:id', controladorUsuario.actualizarPerfil);
