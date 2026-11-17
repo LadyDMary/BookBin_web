@@ -9,13 +9,12 @@ function formatearCreaciones(filas) {
         return { ...resto, materiales };
     });
 }
-
 async function listarCreaciones({ idMaterial, busqueda } = {}) {
     let query = supabase
         .from('mcreacion')
         .select(`
             id_creacion, nombre, descripcion, imagen, id_usuario, aprovado,
-            materiales_creaciones${idMaterial ? '!inner' : ''} (
+            materiales_creaciones (
                 id_materiales,
                 dmateriales ( id_materiales, nombre, descripcion, codigo )
             )
@@ -25,7 +24,19 @@ async function listarCreaciones({ idMaterial, busqueda } = {}) {
         .order('id_creacion', { ascending: false });
 
     if (idMaterial) {
-        query = query.eq('materiales_creaciones.id_materiales', idMaterial);
+        // 1) Busca los ids de las creaciones que usan ese material
+        const { data: relaciones, error: errorRel } = await supabase
+            .from('materiales_creaciones')
+            .select('id_creacion')
+            .eq('id_materiales', idMaterial);
+
+        if (errorRel) throw errorRel;
+
+        const ids = [...new Set(relaciones.map((r) => r.id_creacion))];
+        if (ids.length === 0) return [];
+
+        // 2) Trae solo esas creaciones
+        query = query.in('id_creacion', ids);
     }
 
     if (busqueda) {
