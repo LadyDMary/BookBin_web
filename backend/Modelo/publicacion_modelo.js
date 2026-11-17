@@ -24,20 +24,19 @@ async function listarCreaciones({ idMaterial, busqueda } = {}) {
         .eq('borrador', 0)
         .order('id_creacion', { ascending: false });
 
-    if (busqueda) {
-    const texto = busqueda.replace(/[\\"]/g, '\\$&');
-    query = query.or(`nombre.ilike."%${texto}%",descripcion.ilike."%${texto}%"`);
-}
+    if (idMaterial) {
+        query = query.eq('materiales_creaciones.id_materiales', idMaterial);
+    }
 
     if (busqueda) {
-        query = query.or(`nombre.ilike.%${busqueda}%,descripcion.ilike.%${busqueda}%`);
+        const texto = busqueda.replace(/[\\"]/g, '\\$&');
+        query = query.or(`nombre.ilike."%${texto}%",descripcion.ilike."%${texto}%"`);
     }
 
     const { data, error } = await query;
     if (error) throw error;
     return formatearCreaciones(data);
 }
-
 async function listarCreacionesDeUsuario(idUsuario) {
     const { data, error } = await supabase
         .from('mcreacion')
