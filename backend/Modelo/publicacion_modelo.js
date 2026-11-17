@@ -100,7 +100,12 @@ async function crearCreacion({ nombre, descripcion, instrucciones, idUsuario, im
             .from('materiales_creaciones')
             .insert(filasMateriales);
 
-        if (errorMat) throw errorMat;
+        if (errorMat) {
+        // Deshace la creación para no dejarla guardada sin materiales
+        await supabase.from('mcreacion').delete().eq('id_creacion', nueva.id_creacion);
+        if (errorMat.code === '23503') errorMat.materialInvalido = true;
+        throw errorMat;
+}
     }
 
     return {

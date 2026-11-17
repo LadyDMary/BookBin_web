@@ -104,6 +104,9 @@ async function crearCreacion(req, res) {
     } catch (error) {
         borrarImagenSubida(req);
         console.error(error);
+        if (error.materialInvalido) {
+            return res.status(400).json({ error: 'Alguno de los materiales seleccionados ya no existe. Vuelve a elegirlos.' });
+        }
         return res.status(500).json({ error: 'No se pudo guardar la creación' });
     }
 }
