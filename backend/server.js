@@ -34,6 +34,12 @@ app.get('/api/materiales', controladorMateriales.listarMateriales);
 app.post('/api/registrar', controladorUsuario.registrar);
 app.post('/api/login', controladorUsuario.iniciarSesion);
 
+// Administrador: gestión de verificadores
+app.post('/api/admin/verificadores', controladorUsuario.registrarVerificador);
+app.get('/api/admin/verificadores', controladorUsuario.listarVerificadores);
+app.put('/api/admin/verificadores/:id', controladorUsuario.modificarVerificador);
+app.delete('/api/admin/verificadores/:id', controladorUsuario.eliminarVerificador);
+
 //reportes
 app.post('/api/creaciones/:id/reportes', controladorReportes.crearReporte);
 
