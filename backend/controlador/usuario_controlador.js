@@ -9,8 +9,15 @@ const {
     obtenerUsuarioPorId,
     obtenerUsuarioPorCorreo,
     actualizarUsuario,
+    obtenerVerificadorPorId,
+    crearVerificador,
+    actualizarVerificador,
+    obtenerAdministradorPorCorreo,
+    obtenerVerificadorPorCorreo,
+    listarVerificadoresActivos,
+    desactivarVerificador,
+    correoEnUso,
 } = require('../modelo/usuario_modelo');
-
 // --- REGISTRARSE ---
 async function registrar(req, res) {
     try {
@@ -25,9 +32,8 @@ async function registrar(req, res) {
             return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres.' });
         }
         const correoLimpio = String(correo).trim();
-        // 1. Validar que el usuario no exista ya
-        const usuarioExistente = await obtenerUsuarioPorCorreo(correoLimpio);
-        if (usuarioExistente) {
+       // 1. Validar que el correo no lo use nadie
+        if (await correoEnUso(correoLimpio)) {
             return res.status(400).json({ error: 'El correo ya está registrado.' });
         }
         // 2. Hashear la contraseña (seguridad)
