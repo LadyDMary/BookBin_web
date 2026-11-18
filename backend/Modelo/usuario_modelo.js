@@ -141,6 +141,75 @@ async function actualizarAdministrador(id, { nombre, correo, contrasena }) {
     return data;
 }
 
+// ---------- Funciones para login y panel de administrador ----------
+
+async function obtenerAdministradorPorCorreo(correo) {
+    const { data, error } = await supabase
+        .from('madministrador')
+        .select('*')
+        .eq('correo', correo)
+        .eq('activo', 1)
+        .maybeSingle();
+
+    if (error) throw error;
+    return data;
+}
+
+async function obtenerVerificadorPorCorreo(correo) {
+    const { data, error } = await supabase
+        .from('mverificador')
+        .select('*')
+        .eq('correo', correo)
+        .eq('activo', 1)
+        .maybeSingle();
+
+    if (error) throw error;
+    return data;
+}
+
+async function listarVerificadoresActivos() {
+    const { data, error } = await supabase
+        .from('mverificador')
+        .select('id_verificador, nombre, correo, rol, id_administrador, activo')
+        .eq('activo', 1)
+        .order('id_verificador', { ascending: true });
+
+    if (error) throw error;
+    return data;
+}
+
+async function desactivarVerificador(id) {
+    const { data, error } = await supabase
+        .from('mverificador')
+        .update({ activo: 0 })
+        .eq('id_verificador', id)
+        .eq('activo', 1)
+        .select('id_verificador');
+
+    if (error) throw error;
+    return data.length > 0;
+}
+
+// Revisa que el correo no lo use nadie: usuario, verificador ni administrador
+async function correoEnUso(correo, idVerificadorExcluido = null) {
+    const tablas = [
+        { tabla: 'musuarios', llave: 'id_usuario' },
+        { tabla: 'madministrador', llave: 'id_administrador' },
+        { tabla: 'mverificador', llave: 'id_verificador' },
+    ];
+
+    for (const { tabla, llave } of tablas) {
+        let query = supabase.from(tabla).select(llave).eq('correo', correo).limit(1);
+        if (tabla === 'mverificador' && idVerificadorExcluido) {
+            query = query.neq('id_verificador', idVerificadorExcluido);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        if (data.length > 0) return true;
+    }
+    return false;
+}
+
 module.exports = {
     obtenerUsuarioPorId,
     obtenerUsuarioPorCorreo,
@@ -152,4 +221,9 @@ module.exports = {
     obtenerAdministradorPorId,
     crearAdministrador,
     actualizarAdministrador,
+    obtenerAdministradorPorCorreo,
+    obtenerVerificadorPorCorreo,
+    listarVerificadoresActivos,
+    desactivarVerificador,
+    correoEnUso,
 };
