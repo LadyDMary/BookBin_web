@@ -56,7 +56,7 @@ async function registrar(req, res) {
         return res.status(500).json({ error: 'Error interno del servidor al registrar.' });
     }
 }
-// --- INICIAR SESIÓN ---
+// --- INICIAR SESIÓN (usuarios, verificadores y administradores) ---
 async function iniciarSesion(req, res) {
     try {
         const { correo, contrasena } = req.body;
@@ -67,21 +67,34 @@ async function iniciarSesion(req, res) {
         if (!validarCorreo(correoLimpio)) {
             return res.status(400).json({ error: 'Escribe un correo válido.' });
         }
-        // 1. Buscar al usuario por correo
-        const usuario = await obtenerUsuarioPorCorreo(correoLimpio);
-        if (!usuario) {
+
+        // 1. Buscar la cuenta: primero administrador, luego verificador, luego usuario
+        let cuenta = await obtenerAdministradorPorCorreo(correoLimpio);
+        let tipo = 'administrador';
+
+        if (!cuenta) {
+            cuenta = await obtenerVerificadorPorCorreo(correoLimpio);
+            tipo = cuenta ? cuenta.rol : null; // 'verificador' o 'verificador_lider'
+        }
+        if (!cuenta) {
+            cuenta = await obtenerUsuarioPorCorreo(correoLimpio);
+            tipo = 'usuario';
+        }
+        if (!cuenta) {
             return res.status(401).json({ error: 'Correo o contraseña incorrectos.' });
         }
-        // 2. Comparar la contraseña ingresada con la hasheada de la BD
-        const esValida = await bcrypt.compare(String(contrasena), usuario.contrasena);
+
+        // 2. Comparar la contraseña con la hasheada de la BD
+        const esValida = await bcrypt.compare(String(contrasena), cuenta.contrasena);
         if (!esValida) {
             return res.status(401).json({ error: 'Correo o contraseña incorrectos.' });
         }
-        // 3. Inicio exitoso (excluyendo la contraseña)
-        const { contrasena: _, ...usuarioSinPassword } = usuario;
+
+        // 3. Responder sin la contraseña y con el tipo de cuenta
+        const { contrasena: _, ...cuentaSinPassword } = cuenta;
         return res.status(200).json({
             mensaje: 'Inicio de sesión exitoso',
-            usuario: usuarioSinPassword,
+            usuario: { ...cuentaSinPassword, tipo },
         });
     } catch (error) {
         console.error(error);
@@ -145,8 +158,141 @@ async function actualizarPerfil(req, res) {
         return res.status(500).json({ error: 'No se pudieron guardar los cambios.' });
     }
 }
+const ROLES_VERIFICADOR = ['verificador', 'verificador_lider'];
+
+// --- CREAR CUENTA DE VERIFICADOR (ADMIN) ---
+async function registrarVerificador(req, res) {
+    try {
+        const { nombre, correo, contrasena, rol } = req.body;
+        const idAdministrador = Number(req.body.id_administrador);
+
+        if (!validarNombreUsuario(nombre)) {
+            return res.status(400).json({ error: 'El nombre debe tener entre 1 y 50 caracteres.' });
+        }
+        if (!validarCorreo(correo)) {
+            return res.status(400).json({ error: 'Escribe un correo válido.' });
+        }
+        if (!contrasena || String(contrasena).length < 8 || String(contrasena).length > 72) {
+            return res.status(400).json({ error: 'La contraseña debe tener entre 8 y 72 caracteres.' });
+        }
+        if (!ROLES_VERIFICADOR.includes(rol)) {
+            return res.status(400).json({ error: 'Selecciona un rol válido.' });
+        }
+        if (!Number.isInteger(idAdministrador)) {
+            return res.status(400).json({ error: 'Falta el administrador que crea la cuenta.' });
+        }
+
+        const correoLimpio = String(correo).trim();
+        if (await correoEnUso(correoLimpio)) {
+            return res.status(409).json({ error: 'Ese correo ya está registrado.' });
+        }
+
+        const contrasenaHasheada = await bcrypt.hash(String(contrasena), 10);
+        const nuevo = await crearVerificador({
+            nombre: String(nombre).trim(),
+            correo: correoLimpio,
+            contrasena: contrasenaHasheada,
+            rol,
+            id_administrador: idAdministrador,
+        });
+
+        const { contrasena: _, ...verificadorSinPassword } = nuevo;
+        return res.status(201).json({
+            mensaje: 'Cuenta de verificador creada con éxito',
+            verificador: verificadorSinPassword,
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Error interno al crear el verificador.' });
+    }
+}
+
+// --- LISTAR VERIFICADORES ACTIVOS (ADMIN) ---
+async function listarVerificadores(req, res) {
+    try {
+        const verificadores = await listarVerificadoresActivos();
+        return res.json(verificadores);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Error al obtener la lista de verificadores.' });
+    }
+}
+
+// --- CAMBIAR ROL O EDITAR VERIFICADOR (ADMIN) ---
+async function modificarVerificador(req, res) {
+    try {
+        const idVerificador = Number(req.params.id);
+        const { rol, nombre, correo } = req.body;
+
+        if (!Number.isInteger(idVerificador)) {
+            return res.status(400).json({ error: 'ID de verificador no válido.' });
+        }
+
+        const existente = await obtenerVerificadorPorId(idVerificador);
+        if (!existente || existente.activo !== 1) {
+            return res.status(404).json({ error: 'No se encontró el verificador.' });
+        }
+
+        const cambios = {};
+        if (rol !== undefined) {
+            if (!ROLES_VERIFICADOR.includes(rol)) {
+                return res.status(400).json({ error: 'Rol no válido.' });
+            }
+            cambios.rol = rol;
+        }
+        if (nombre !== undefined) {
+            if (!validarNombreUsuario(nombre)) {
+                return res.status(400).json({ error: 'El nombre debe tener entre 1 y 50 caracteres.' });
+            }
+            cambios.nombre = String(nombre).trim();
+        }
+        if (correo !== undefined) {
+            const correoLimpio = String(correo).trim();
+            if (!validarCorreo(correoLimpio)) {
+                return res.status(400).json({ error: 'Escribe un correo válido.' });
+            }
+            if (await correoEnUso(correoLimpio, idVerificador)) {
+                return res.status(409).json({ error: 'Ese correo ya está registrado.' });
+            }
+            cambios.correo = correoLimpio;
+        }
+        if (Object.keys(cambios).length === 0) {
+            return res.status(400).json({ error: 'No hay cambios que guardar.' });
+        }
+
+        const actualizado = await actualizarVerificador(idVerificador, cambios);
+        const { contrasena: _, ...verificadorSinPassword } = actualizado;
+        return res.json({ mensaje: 'Verificador actualizado con éxito', verificador: verificadorSinPassword });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'No se pudo actualizar el verificador.' });
+    }
+}
+
+// --- ELIMINAR VERIFICADOR (ADMIN, borrado lógico) ---
+async function eliminarVerificador(req, res) {
+    try {
+        const idVerificador = Number(req.params.id);
+        if (!Number.isInteger(idVerificador)) {
+            return res.status(400).json({ error: 'ID no válido.' });
+        }
+
+        const eliminado = await desactivarVerificador(idVerificador);
+        if (!eliminado) {
+            return res.status(404).json({ error: 'No se encontró el verificador.' });
+        }
+        return res.json({ mensaje: 'Cuenta de verificador eliminada con éxito' });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Error al eliminar el verificador.' });
+    }
+}
 module.exports = {
     registrar,
     iniciarSesion,
     actualizarPerfil,
+    registrarVerificador,
+    listarVerificadores,
+    modificarVerificador,
+    eliminarVerificador,
 };
