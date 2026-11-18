@@ -70,6 +70,7 @@ async function obtenerCreacion(id) {
         .from('mcreacion')
         .select(`
             *,
+            musuarios (nombre),
             materiales_creaciones (
                 dmateriales ( id_materiales, nombre, descripcion, codigo )
             )
