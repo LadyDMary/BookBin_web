@@ -10,6 +10,7 @@ const controladorMateriales = require('./controlador/material_controlador');
 const controladorUsuario = require('./controlador/usuario_controlador');
 const controladorReportes = require('./controlador/reporte_controlador');
 const controladorFavoritos = require('./controlador/favorito_controlador');
+const controladorHerramientas = require('./controlador/herramienta_controlador');
 
 const app = express();
 
@@ -27,8 +28,12 @@ app.post('/api/creaciones', subida.single('imagen'), controladorPublicaciones.cr
 app.put('/api/creaciones/:id', subida.single('imagen'), controladorPublicaciones.actualizarCreacion);
 app.delete('/api/creaciones/:id', controladorPublicaciones.eliminarCreacion);
 
+
 // Materiales
 app.get('/api/materiales', controladorMateriales.listarMateriales);
+
+// Herramientas
+app.get('/api/herramientas', controladorHerramientas.listarHerramientas);
 
 // Usuarios
 app.post('/api/registrar', controladorUsuario.registrar);
