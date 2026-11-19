@@ -1,7 +1,6 @@
-const fs = require('fs');
-const path = require('path');
 const Creacion = require('../modelo/publicacion_modelo');
 const Validacion = require('../validaciones');
+const { subirImagen, borrarImagen } = require('../almacenamiento_imagenes');
 
 function leerMateriales(valor) {
     if (!valor) return [];
@@ -14,18 +13,6 @@ function leerMateriales(valor) {
         return [];
     }
     return [];
-}
-
-function borrarImagenSubida(req) {
-    if (req && req.file) {
-        fs.unlink(req.file.path, () => {});
-    }
-}
-
-function borrarImagenPorRuta(rutaImagen) {
-    if (!rutaImagen) return;
-    const rutaAbsoluta = path.join(__dirname, '..', rutaImagen);
-    fs.unlink(rutaAbsoluta, () => {});
 }
 
 async function listarCreaciones(req, res) {
@@ -84,25 +71,29 @@ async function crearCreacion(req, res) {
     const problema = Validacion.validarCamposCreacion({ nombre, descripcion, instrucciones }, esBorrador);
     
     if (problema || !Number.isInteger(idUsuario)) {
-        borrarImagenSubida(req);
         return res.status(400).json({ error: problema || 'El id_usuario es obligatorio y debe ser numérico.' });
     } if (!esBorrador && !req.file) {
         return res.status(400).json({ error: 'Agrega una imagen para publicar la creación.' });
     }
+    // La imagen se sube a Supabase Storage solo cuando los datos ya son válidos
+    let imagenUrl = null;
     try {
+        if (req.file) imagenUrl = await subirImagen(req.file);
+
         const nueva = await Creacion.crearCreacion({
             nombre,
             descripcion,
             instrucciones,
             idUsuario,
-            imagen: req.file ? `/uploads/${req.file.filename}` : null,
+            imagen: imagenUrl,
             borrador: esBorrador ? 1 : 0,
             idMateriales,
         });
         
         return res.status(201).json(nueva);
     } catch (error) {
-        borrarImagenSubida(req);
+        // Si falló al guardar en la BD, quita la imagen que ya se había subido
+        if (imagenUrl) borrarImagen(imagenUrl);
         console.error(error);
         return res.status(500).json({ error: 'No se pudo guardar la creación' });
     }
@@ -113,7 +104,6 @@ async function actualizarCreacion(req, res) {
     const idUsuario = Number(req.body.id_usuario);
 
     if (!Number.isInteger(id) || !Number.isInteger(idUsuario)) {
-        borrarImagenSubida(req);
         return res.status(400).json({ error: 'Datos de la creación no válidos.' });
     }
 
@@ -124,7 +114,6 @@ async function actualizarCreacion(req, res) {
 
     const problema = Validacion.validarCamposCreacion({ nombre, descripcion, instrucciones }, false);
     if (problema) {
-        borrarImagenSubida(req);
         return res.status(400).json({ error: problema });
     }
 
@@ -132,25 +121,26 @@ async function actualizarCreacion(req, res) {
     const enviaronMateriales = req.body.id_materiales !== undefined;
     const idMateriales = leerMateriales(req.body.id_materiales);
     if (enviaronMateriales && idMateriales.length === 0) {
-        borrarImagenSubida(req);
         return res.status(400).json({ error: 'Selecciona al menos un material.' });
     }
 
+    let nuevaImagen = null;
     try {
         // 2. Verificar que exista y que sea del usuario
         const anterior = await Creacion.obtenerCreacion(id);
         if (!anterior) {
-            borrarImagenSubida(req);
             return res.status(404).json({ error: 'No se encontró la creación.' });
         }
         if (Number(anterior.id_usuario) !== idUsuario) {
-            borrarImagenSubida(req);
             return res.status(403).json({ error: 'Solo puedes editar tus propias creaciones.' });
         }
 
         // 3. Guardar los cambios
         const cambios = { nombre, descripcion, instrucciones };
-        if (req.file) cambios.imagen = `/uploads/${req.file.filename}`;
+        if (req.file) {
+            nuevaImagen = await subirImagen(req.file);
+            cambios.imagen = nuevaImagen;
+        }
 
         await Creacion.actualizarCreacion(id, cambios);
         if (enviaronMateriales) {
@@ -158,13 +148,13 @@ async function actualizarCreacion(req, res) {
         }
 
         // 4. Borrar la imagen vieja solo cuando todo salió bien
-        if (req.file && anterior.imagen) {
-            borrarImagenPorRuta(anterior.imagen);
+        if (nuevaImagen && anterior.imagen) {
+            borrarImagen(anterior.imagen);
         }
 
         return res.json({ mensaje: 'Creación actualizada', id_creacion: id, ...cambios, id_materiales: idMateriales });
     } catch (error) {
-        borrarImagenSubida(req);
+        if (nuevaImagen) borrarImagen(nuevaImagen);
         console.error(error);
         if (error.materialInvalido) {
             return res.status(400).json({ error: 'Alguno de los materiales seleccionados ya no existe.' });
@@ -193,9 +183,9 @@ async function eliminarCreacion(req, res) {
             return res.status(404).json({ error: 'No se pudo eliminar la creación de la base de datos' });
         }
 
-        // 3. Borrar la imagen física en /uploads
+        // 3. Borrar la imagen (de Supabase Storage o, si es vieja, de /uploads)
         if (creacionExistente.imagen) {
-            borrarImagenPorRuta(creacionExistente.imagen);
+            borrarImagen(creacionExistente.imagen);
         }
 
         return res.status(204).send();
