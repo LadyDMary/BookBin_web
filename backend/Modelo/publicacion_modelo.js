@@ -6,8 +6,11 @@ function formatearCreaciones(filas) {
         const materiales = (c.materiales_creaciones || [])
             .filter((rel) => rel.dmateriales)
             .map((rel) => ({ ...rel.dmateriales, cantidad: rel.cantidad ?? 1 }));
-        const { materiales_creaciones, ...resto } = c;
-        return { ...resto, materiales };
+        const herramientas = (c.herramientas_creaciones || [])
+            .map((rel) => rel.dherramientas)
+            .filter(Boolean);
+        const { materiales_creaciones, herramientas_creaciones, ...resto } = c;
+        return { ...resto, materiales, herramientas };
     });
 }
 async function listarCreaciones({ idMaterial, busqueda } = {}) {
@@ -77,6 +80,9 @@ async function obtenerCreacion(id) {
             materiales_creaciones (
                 cantidad,
                 dmateriales ( id_materiales, nombre, descripcion, codigo )
+            ),
+            herramientas_creaciones (
+                dherramientas ( id_herramientas, nombre, descripcion )
             )
         `)
         .eq('id_creacion', id)
@@ -88,7 +94,7 @@ async function obtenerCreacion(id) {
     return formatearCreaciones([data])[0];
 }
 
-async function crearCreacion({ nombre, descripcion, instrucciones, idUsuario, imagen, borrador, idMateriales = [], cantidades = {} }) {
+async function crearCreacion({ nombre, descripcion, instrucciones, idUsuario, imagen, borrador, idMateriales = [], cantidades = {}, idHerramientas = [] }) {
     const { data: nueva, error } = await supabase
         .from('mcreacion')
         .insert([{
@@ -124,9 +130,27 @@ async function crearCreacion({ nombre, descripcion, instrucciones, idUsuario, im
         }
     }
 
+    if (Array.isArray(idHerramientas) && idHerramientas.length > 0) {
+        const { error: errorHer } = await supabase
+            .from('herramientas_creaciones')
+            .insert(idHerramientas.map((idHerramienta) => ({
+                id_creacion: nueva.id_creacion,
+                id_herramientas: idHerramienta,
+            })));
+
+        if (errorHer) {
+            // Deshace todo: primero los materiales ya guardados y luego la creación
+            await supabase.from('materiales_creaciones').delete().eq('id_creacion', nueva.id_creacion);
+            await supabase.from('mcreacion').delete().eq('id_creacion', nueva.id_creacion);
+            if (errorHer.code === '23503') errorHer.herramientaInvalida = true;
+            throw errorHer;
+        }
+    }
+
     return {
         ...nueva,
         id_materiales: idMateriales,
+        id_herramientas: idHerramientas,
     };
 }
 //funciones para actualizar la creacion
@@ -187,6 +211,42 @@ async function actualizarMaterialesCreacion(idCreacion, idMateriales, cantidades
     return true;
 }
 
+// Reemplaza las herramientas de una creación por la lista nueva (puede quedar vacía)
+async function actualizarHerramientasCreacion(idCreacion, idHerramientas) {
+    const { data: anteriores, error: errorLeer } = await supabase
+        .from('herramientas_creaciones')
+        .select('id_herramientas')
+        .eq('id_creacion', idCreacion);
+    if (errorLeer) throw errorLeer;
+
+    const { error: errorBorrar } = await supabase
+        .from('herramientas_creaciones')
+        .delete()
+        .eq('id_creacion', idCreacion);
+    if (errorBorrar) throw errorBorrar;
+
+    if (idHerramientas.length === 0) return true;
+
+    const { error: errorInsertar } = await supabase
+        .from('herramientas_creaciones')
+        .insert(idHerramientas.map((idHerramienta) => ({
+            id_creacion: idCreacion,
+            id_herramientas: idHerramienta,
+        })));
+
+    if (errorInsertar) {
+        // Si falla, regresa las herramientas que tenía antes
+        if (anteriores.length > 0) {
+            await supabase.from('herramientas_creaciones').insert(
+                anteriores.map((h) => ({ id_creacion: idCreacion, id_herramientas: h.id_herramientas }))
+            );
+        }
+        if (errorInsertar.code === '23503') errorInsertar.herramientaInvalida = true;
+        throw errorInsertar;
+    }
+    return true;
+}
+
 async function eliminarCreacion(id) {
     const { data, error } = await supabase
         .from('mcreacion')
@@ -231,6 +291,7 @@ module.exports = {
     crearCreacion,
     actualizarCreacion,
     actualizarMaterialesCreacion,
+    actualizarHerramientasCreacion,
     eliminarCreacion,
     buscarCreacionesPorNombre,
 };

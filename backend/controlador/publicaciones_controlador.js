@@ -89,6 +89,7 @@ async function crearCreacion(req, res) {
     const esBorrador = req.body.accion === 'borrador' || req.body.borrador === 'true' || req.body.borrador === true;
     const idMateriales = leerMateriales(req.body.id_materiales || req.body.materiales);
     const cantidades = leerCantidades(req.body.cantidades, idMateriales);
+    const idHerramientas = leerMateriales(req.body.id_herramientas);
 
     const problema = Validacion.validarCamposCreacion({ nombre, descripcion, instrucciones }, esBorrador);
     
@@ -114,6 +115,7 @@ async function crearCreacion(req, res) {
             borrador: esBorrador ? 1 : 0,
             idMateriales,
             cantidades,
+            idHerramientas,
         });
         
         return res.status(201).json(nueva);
@@ -121,6 +123,12 @@ async function crearCreacion(req, res) {
         // Si falló al guardar en la BD, quita la imagen que ya se había subido
         if (imagenUrl) borrarImagen(imagenUrl);
         console.error(error);
+        if (error.materialInvalido) {
+            return res.status(400).json({ error: 'Alguno de los materiales seleccionados ya no existe.' });
+        }
+        if (error.herramientaInvalida) {
+            return res.status(400).json({ error: 'Alguna de las herramientas seleccionadas ya no existe.' });
+        }
         return res.status(500).json({ error: 'No se pudo guardar la creación' });
     }
 }
@@ -154,6 +162,10 @@ async function actualizarCreacion(req, res) {
         return res.status(400).json({ error: 'La cantidad de cada material debe ser un número entre 1 y 999.' });
     }
 
+    // Herramientas: opcionales; si las mandan (aunque sea vacío) se reemplazan
+    const enviaronHerramientas = req.body.id_herramientas !== undefined;
+    const idHerramientas = leerMateriales(req.body.id_herramientas);
+
     let nuevaImagen = null;
     try {
         // 2. Verificar que exista y que sea del usuario
@@ -176,6 +188,9 @@ async function actualizarCreacion(req, res) {
         if (enviaronMateriales) {
             await Creacion.actualizarMaterialesCreacion(id, idMateriales, cantidades);
         }
+        if (enviaronHerramientas) {
+            await Creacion.actualizarHerramientasCreacion(id, idHerramientas);
+        }
 
         // 4. Borrar la imagen vieja solo cuando todo salió bien
         if (nuevaImagen && anterior.imagen) {
@@ -188,6 +203,9 @@ async function actualizarCreacion(req, res) {
         console.error(error);
         if (error.materialInvalido) {
             return res.status(400).json({ error: 'Alguno de los materiales seleccionados ya no existe.' });
+        }
+        if (error.herramientaInvalida) {
+            return res.status(400).json({ error: 'Alguna de las herramientas seleccionadas ya no existe.' });
         }
         return res.status(500).json({ error: 'No se pudo actualizar la creación.' });
     }
