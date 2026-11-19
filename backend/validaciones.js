@@ -29,11 +29,17 @@ function validarContrasenaSegura(contrasena, confirmar) {
 function validarCamposCreacion({ nombre, descripcion, instrucciones }, esBorrador) {
     if (!nombre) return 'El nombre es obligatorio.';
     if (nombre.length > 50) return 'El nombre no puede pasar de 50 caracteres.';
-    if (descripcion.length > 100) return 'La descripción no puede pasar de 100 caracteres.';
-    if (instrucciones.length > 500) return 'Las instrucciones no pueden pasar de 500 caracteres.';
+    
+    // Límite ajustado a 200 caracteres para la descripción
+    if (descripcion?.length > 200) return 'La descripción no puede pasar de 200 caracteres.';
+    
+    // Límite ampliado para permitir instrucciones largas (más de 1000 caracteres, aquí ajustado a 2000)
+    if (instrucciones?.length > 2000) return 'Las instrucciones no pueden pasar de 2000 caracteres.';
+    
     if (!esBorrador && (!descripcion || !instrucciones)) {
         return 'Para publicar, completa la descripción y las instrucciones.';
     }
+    
     return null;
 }
 const MOTIVOS_REPORTE = ['inapropiado', 'spam', 'peligroso', 'plagio', 'otro'];
