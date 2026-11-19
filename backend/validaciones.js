@@ -31,7 +31,7 @@ function validarCamposCreacion({ nombre, descripcion, instrucciones }, esBorrado
     if (nombre.length > 50) return 'El nombre no puede pasar de 50 caracteres.';
     
     // Límite ajustado a 200 caracteres para la descripción
-    if (descripcion?.length > 200) return 'La descripción no puede pasar de 200 caracteres.';
+    if (descripcion?.length > 400) return 'La descripción no puede pasar de 400 caracteres.';
     
     // Límite ampliado para permitir instrucciones largas (más de 1000 caracteres, aquí ajustado a 2000)
     if (instrucciones?.length > 2000) return 'Las instrucciones no pueden pasar de 2000 caracteres.';
