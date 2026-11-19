@@ -104,78 +104,76 @@ async function crearCreacion(req, res) {
     } catch (error) {
         borrarImagenSubida(req);
         console.error(error);
-        if (error.materialInvalido) {
-            return res.status(400).json({ error: 'Alguno de los materiales seleccionados ya no existe. Vuelve a elegirlos.' });
-        }
         return res.status(500).json({ error: 'No se pudo guardar la creación' });
     }
 }
-
+//funciones para actualizar una creacion
 async function actualizarCreacion(req, res) {
     const id = Number(req.params.id);
-    if (!Number.isInteger(id)) {
+    const idUsuario = Number(req.body.id_usuario);
+
+    if (!Number.isInteger(id) || !Number.isInteger(idUsuario)) {
         borrarImagenSubida(req);
-        return res.status(400).json({ error: 'ID de creación no válido' });
+        return res.status(400).json({ error: 'Datos de la creación no válidos.' });
     }
-    // 1. Guardar solo los campos que el usuario realmente envió
-    const cambios = {};
-    if (req.body.nombre !== undefined) {
-        const nombreLimpio = String(req.body.nombre).trim();
-        if (!nombreLimpio || nombreLimpio.length > 100) {
-            borrarImagenSubida(req);
-            return res.status(400).json({ error: 'El nombre debe tener entre 1 y 100 caracteres.' });
-        }
-        cambios.nombre = nombreLimpio;
+
+    // 1. Validar con las mismas reglas que al crear
+    const nombre = (req.body.nombre || '').trim();
+    const descripcion = (req.body.descripcion || '').trim();
+    const instrucciones = (req.body.instrucciones || '').trim();
+
+    const problema = Validacion.validarCamposCreacion({ nombre, descripcion, instrucciones }, false);
+    if (problema) {
+        borrarImagenSubida(req);
+        return res.status(400).json({ error: problema });
     }
-    if (req.body.descripcion !== undefined) {
-        const descLimpia = String(req.body.descripcion).trim();
-        if (!descLimpia) {
-            borrarImagenSubida(req);
-            return res.status(400).json({ error: 'La descripción no puede quedar vacía.' });
-        }
-        cambios.descripcion = descLimpia;
+
+    // Materiales: si los mandan, debe quedar al menos uno
+    const enviaronMateriales = req.body.id_materiales !== undefined;
+    const idMateriales = leerMateriales(req.body.id_materiales);
+    if (enviaronMateriales && idMateriales.length === 0) {
+        borrarImagenSubida(req);
+        return res.status(400).json({ error: 'Selecciona al menos un material.' });
     }
-    if (req.body.instrucciones !== undefined) {
-        const instLimpias = String(req.body.instrucciones).trim();
-        if (!instLimpias) {
-            borrarImagenSubida(req);
-            return res.status(400).json({ error: 'Las instrucciones no pueden quedar vacías.' });
-        }
-        cambios.instrucciones = instLimpias;
-    }
-    if (req.file) {
-        cambios.imagen = `/uploads/${req.file.filename}`;
-    }
-    // 2. Si no enviaron ningún campo ni imagen, detener aquí
-    if (Object.keys(cambios).length === 0) {
-        return res.status(400).json({ error: 'No enviaste ningún dato para actualizar.' });
-    }
+
     try {
-        // Si subieron imagen nueva, borrar la anterior del servidor
-        if (req.file) {
-            const anterior = await Creacion.obtenerCreacion(id);
-            if (!anterior) {
-                borrarImagenSubida(req);
-                return res.status(404).json({ error: 'No se encontró la creación a actualizar' });
-            }
-            if (anterior.imagen) {
-                borrarImagenPorRuta(anterior.imagen);
-            }
-        }
-        // 3. Enviar solo el objeto `cambios` al modelo
-        const actualizada = await Creacion.actualizarCreacion(id, cambios);
-        if (!actualizada) {
+        // 2. Verificar que exista y que sea del usuario
+        const anterior = await Creacion.obtenerCreacion(id);
+        if (!anterior) {
             borrarImagenSubida(req);
-            return res.status(404).json({ error: 'No se encontró la creación a actualizar' });
+            return res.status(404).json({ error: 'No se encontró la creación.' });
         }
-        return res.json({ id_creacion: id, ...cambios });
+        if (Number(anterior.id_usuario) !== idUsuario) {
+            borrarImagenSubida(req);
+            return res.status(403).json({ error: 'Solo puedes editar tus propias creaciones.' });
+        }
+
+        // 3. Guardar los cambios
+        const cambios = { nombre, descripcion, instrucciones };
+        if (req.file) cambios.imagen = `/uploads/${req.file.filename}`;
+
+        await Creacion.actualizarCreacion(id, cambios);
+        if (enviaronMateriales) {
+            await Creacion.actualizarMaterialesCreacion(id, idMateriales);
+        }
+
+        // 4. Borrar la imagen vieja solo cuando todo salió bien
+        if (req.file && anterior.imagen) {
+            borrarImagenPorRuta(anterior.imagen);
+        }
+
+        return res.json({ mensaje: 'Creación actualizada', id_creacion: id, ...cambios, id_materiales: idMateriales });
     } catch (error) {
         borrarImagenSubida(req);
         console.error(error);
-        return res.status(500).json({ error: 'No se pudo actualizar la creación' });
+        if (error.materialInvalido) {
+            return res.status(400).json({ error: 'Alguno de los materiales seleccionados ya no existe.' });
+        }
+        return res.status(500).json({ error: 'No se pudo actualizar la creación.' });
     }
 }
 
+//funciones para eliminar una creacion
 async function eliminarCreacion(req, res) {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
@@ -207,22 +205,6 @@ async function eliminarCreacion(req, res) {
     }
 }
 
-async function buscarPorNombre(req, res) {
-    try {
-        const { nombre } = req.query;
-        if (!nombre || !nombre.trim()) {
-            return res.status(400).json({ error: 'Debes indicar un nombre para buscar' });
-        }
-        const creaciones = await Creacion.buscarCreacionesPorNombre(nombre);
-        res.json(creaciones);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Error al buscar las creaciones' });
-    }
-}
-
-
-
 module.exports = {
     listarCreaciones,
     listarCreacionesDeUsuario,
@@ -230,5 +212,4 @@ module.exports = {
     crearCreacion,
     actualizarCreacion,
     eliminarCreacion,
-    buscarPorNombre,
 };

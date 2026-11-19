@@ -124,6 +124,7 @@ async function crearCreacion({ nombre, descripcion, instrucciones, idUsuario, im
         id_materiales: idMateriales,
     };
 }
+//funciones para actualizar la creacion
 
 async function actualizarCreacion(id, { nombre, descripcion, instrucciones, imagen }) {
     const cambios = {};
@@ -143,6 +144,41 @@ async function actualizarCreacion(id, { nombre, descripcion, instrucciones, imag
 
     if (error) throw error;
     return data.length > 0;
+}
+// Reemplaza los materiales de una creación por la lista nueva
+async function actualizarMaterialesCreacion(idCreacion, idMateriales) {
+    // Guarda los actuales por si hay que restaurarlos
+    const { data: anteriores, error: errorLeer } = await supabase
+        .from('materiales_creaciones')
+        .select('id_materiales')
+        .eq('id_creacion', idCreacion);
+    if (errorLeer) throw errorLeer;
+
+    const { error: errorBorrar } = await supabase
+        .from('materiales_creaciones')
+        .delete()
+        .eq('id_creacion', idCreacion);
+    if (errorBorrar) throw errorBorrar;
+
+    const filas = idMateriales.map((idMaterial) => ({
+        id_creacion: idCreacion,
+        id_materiales: idMaterial,
+    }));
+    const { error: errorInsertar } = await supabase
+        .from('materiales_creaciones')
+        .insert(filas);
+
+    if (errorInsertar) {
+        // Si falla, regresa los materiales que tenía antes
+        if (anteriores.length > 0) {
+            await supabase.from('materiales_creaciones').insert(
+                anteriores.map((m) => ({ id_creacion: idCreacion, id_materiales: m.id_materiales }))
+            );
+        }
+        if (errorInsertar.code === '23503') errorInsertar.materialInvalido = true;
+        throw errorInsertar;
+    }
+    return true;
 }
 
 async function eliminarCreacion(id) {
@@ -187,6 +223,7 @@ module.exports = {
     obtenerCreacion,
     crearCreacion,
     actualizarCreacion,
+    actualizarMaterialesCreacion,
     eliminarCreacion,
     buscarCreacionesPorNombre,
 };
