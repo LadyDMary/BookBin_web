@@ -2,9 +2,10 @@ const supabase = require('../bd-supabase');
 
 function formatearCreaciones(filas) {
     return filas.map((c) => {
+        // Cada material lleva la cantidad que pide la creación
         const materiales = (c.materiales_creaciones || [])
-            .map((rel) => rel.dmateriales)
-            .filter(Boolean);
+            .filter((rel) => rel.dmateriales)
+            .map((rel) => ({ ...rel.dmateriales, cantidad: rel.cantidad ?? 1 }));
         const { materiales_creaciones, ...resto } = c;
         return { ...resto, materiales };
     });
@@ -16,6 +17,7 @@ async function listarCreaciones({ idMaterial, busqueda } = {}) {
             id_creacion, nombre, descripcion, imagen, id_usuario, aprovado,
             materiales_creaciones (
                 id_materiales,
+                cantidad,
                 dmateriales ( id_materiales, nombre, descripcion, codigo )
             )
         `)
@@ -54,6 +56,7 @@ async function listarCreacionesDeUsuario(idUsuario) {
         .select(`
             id_creacion, nombre, descripcion, imagen, id_usuario, borrador, aprovado,
             materiales_creaciones (
+                cantidad,
                 dmateriales ( id_materiales, nombre, descripcion, codigo )
             )
         `)
@@ -72,6 +75,7 @@ async function obtenerCreacion(id) {
             *,
             musuarios (nombre),
             materiales_creaciones (
+                cantidad,
                 dmateriales ( id_materiales, nombre, descripcion, codigo )
             )
         `)
@@ -84,7 +88,7 @@ async function obtenerCreacion(id) {
     return formatearCreaciones([data])[0];
 }
 
-async function crearCreacion({ nombre, descripcion, instrucciones, idUsuario, imagen, borrador, idMateriales = [] }) {
+async function crearCreacion({ nombre, descripcion, instrucciones, idUsuario, imagen, borrador, idMateriales = [], cantidades = {} }) {
     const { data: nueva, error } = await supabase
         .from('mcreacion')
         .insert([{
@@ -106,17 +110,18 @@ async function crearCreacion({ nombre, descripcion, instrucciones, idUsuario, im
         const filasMateriales = idMateriales.map((idMaterial) => ({
             id_creacion: nueva.id_creacion,
             id_materiales: idMaterial,
+            cantidad: cantidades[idMaterial] ?? 1,
         }));
         const { error: errorMat } = await supabase
             .from('materiales_creaciones')
             .insert(filasMateriales);
 
         if (errorMat) {
-        // Deshace la creación para no dejarla guardada sin materiales
-        await supabase.from('mcreacion').delete().eq('id_creacion', nueva.id_creacion);
-        if (errorMat.code === '23503') errorMat.materialInvalido = true;
-        throw errorMat;
-}
+            // Deshace la creación para no dejarla guardada sin materiales
+            await supabase.from('mcreacion').delete().eq('id_creacion', nueva.id_creacion);
+            if (errorMat.code === '23503') errorMat.materialInvalido = true;
+            throw errorMat;
+        }
     }
 
     return {
@@ -146,11 +151,11 @@ async function actualizarCreacion(id, { nombre, descripcion, instrucciones, imag
     return data.length > 0;
 }
 // Reemplaza los materiales de una creación por la lista nueva
-async function actualizarMaterialesCreacion(idCreacion, idMateriales) {
+async function actualizarMaterialesCreacion(idCreacion, idMateriales, cantidades = {}) {
     // Guarda los actuales por si hay que restaurarlos
     const { data: anteriores, error: errorLeer } = await supabase
         .from('materiales_creaciones')
-        .select('id_materiales')
+        .select('id_materiales, cantidad')
         .eq('id_creacion', idCreacion);
     if (errorLeer) throw errorLeer;
 
@@ -163,6 +168,7 @@ async function actualizarMaterialesCreacion(idCreacion, idMateriales) {
     const filas = idMateriales.map((idMaterial) => ({
         id_creacion: idCreacion,
         id_materiales: idMaterial,
+        cantidad: cantidades[idMaterial] ?? 1,
     }));
     const { error: errorInsertar } = await supabase
         .from('materiales_creaciones')
@@ -172,7 +178,7 @@ async function actualizarMaterialesCreacion(idCreacion, idMateriales) {
         // Si falla, regresa los materiales que tenía antes
         if (anteriores.length > 0) {
             await supabase.from('materiales_creaciones').insert(
-                anteriores.map((m) => ({ id_creacion: idCreacion, id_materiales: m.id_materiales }))
+                anteriores.map((m) => ({ id_creacion: idCreacion, id_materiales: m.id_materiales, cantidad: m.cantidad ?? 1 }))
             );
         }
         if (errorInsertar.code === '23503') errorInsertar.materialInvalido = true;
@@ -206,6 +212,7 @@ async function buscarCreacionesPorNombre(nombre) {
             id_creacion, nombre, descripcion, imagen, id_usuario, aprovado,
             materiales_creaciones (
                 id_materiales,
+                cantidad,
                 dmateriales ( id_materiales, nombre, descripcion, codigo )
             )
         `)

@@ -15,6 +15,27 @@ function leerMateriales(valor) {
     return [];
 }
 
+// Lee las cantidades { idMaterial: cantidad }. Regresa null si alguna no es válida (entero de 1 a 999)
+function leerCantidades(valor, idMateriales) {
+    let objeto = {};
+    if (valor) {
+        try {
+            objeto = typeof valor === 'string' ? JSON.parse(valor) : valor;
+        } catch {
+            return null;
+        }
+        if (!objeto || typeof objeto !== 'object' || Array.isArray(objeto)) return null;
+    }
+
+    const cantidades = {};
+    for (const idMaterial of idMateriales) {
+        const cantidad = objeto[idMaterial] === undefined ? 1 : Number(objeto[idMaterial]);
+        if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 999) return null;
+        cantidades[idMaterial] = cantidad;
+    }
+    return cantidades;
+}
+
 async function listarCreaciones(req, res) {
     try {
         const idMaterial = Number(req.query.material) || null;
@@ -67,9 +88,13 @@ async function crearCreacion(req, res) {
     const idUsuario = Number(req.body.id_usuario);
     const esBorrador = req.body.accion === 'borrador' || req.body.borrador === 'true' || req.body.borrador === true;
     const idMateriales = leerMateriales(req.body.id_materiales || req.body.materiales);
+    const cantidades = leerCantidades(req.body.cantidades, idMateriales);
 
     const problema = Validacion.validarCamposCreacion({ nombre, descripcion, instrucciones }, esBorrador);
     
+    if (!cantidades) {
+        return res.status(400).json({ error: 'La cantidad de cada material debe ser un número entre 1 y 999.' });
+    }
     if (problema || !Number.isInteger(idUsuario)) {
         return res.status(400).json({ error: problema || 'El id_usuario es obligatorio y debe ser numérico.' });
     } if (!esBorrador && !req.file) {
@@ -88,6 +113,7 @@ async function crearCreacion(req, res) {
             imagen: imagenUrl,
             borrador: esBorrador ? 1 : 0,
             idMateriales,
+            cantidades,
         });
         
         return res.status(201).json(nueva);
@@ -123,6 +149,10 @@ async function actualizarCreacion(req, res) {
     if (enviaronMateriales && idMateriales.length === 0) {
         return res.status(400).json({ error: 'Selecciona al menos un material.' });
     }
+    const cantidades = leerCantidades(req.body.cantidades, idMateriales);
+    if (!cantidades) {
+        return res.status(400).json({ error: 'La cantidad de cada material debe ser un número entre 1 y 999.' });
+    }
 
     let nuevaImagen = null;
     try {
@@ -144,7 +174,7 @@ async function actualizarCreacion(req, res) {
 
         await Creacion.actualizarCreacion(id, cambios);
         if (enviaronMateriales) {
-            await Creacion.actualizarMaterialesCreacion(id, idMateriales);
+            await Creacion.actualizarMaterialesCreacion(id, idMateriales, cantidades);
         }
 
         // 4. Borrar la imagen vieja solo cuando todo salió bien
