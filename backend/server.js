@@ -24,7 +24,6 @@ app.get('/api/creaciones', controladorPublicaciones.listarCreaciones);
 app.get('/api/creaciones/usuario/:idUsuario', controladorPublicaciones.listarCreacionesDeUsuario);
 app.get('/api/creaciones/:id', controladorPublicaciones.obtenerCreacion);
 app.post('/api/creaciones', subida.single('imagen'), controladorPublicaciones.crearCreacion);
-app.put('/api/creaciones/:id', controladorPublicaciones.actualizarCreacion);
 app.put('/api/creaciones/:id', subida.single('imagen'), controladorPublicaciones.actualizarCreacion);
 app.delete('/api/creaciones/:id', controladorPublicaciones.eliminarCreacion);
 
