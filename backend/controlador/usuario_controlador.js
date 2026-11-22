@@ -1,4 +1,5 @@
 const bcrypt = require('bcrypt');
+const { abrirSesion } = require('../middleware/autenticacion');
 const { 
     validarCorreo, 
     validarNombreUsuario 
@@ -90,10 +91,12 @@ async function iniciarSesion(req, res) {
             return res.status(401).json({ error: 'Correo o contraseña incorrectos.' });
         }
 
-        // 3. Responder sin la contraseña y con el tipo de cuenta
+        // 3. Crear la sesión (cookie) y el JWT
+        const token = await abrirSesion(req, cuenta, tipo);
         const { contrasena: _, ...cuentaSinPassword } = cuenta;
         return res.status(200).json({
             mensaje: 'Inicio de sesión exitoso',
+            token,
             usuario: { ...cuentaSinPassword, tipo },
         });
     } catch (error) {
