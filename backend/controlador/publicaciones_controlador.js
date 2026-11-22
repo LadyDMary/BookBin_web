@@ -224,6 +224,9 @@ async function eliminarCreacion(req, res) {
         if (!creacionExistente) {
             return res.status(404).json({ error: 'No se encontró la creación' });
         }
+        if (Number(creacionExistente.id_usuario) !== Number(req.body.id_usuario)) {
+            return res.status(403).json({ error: 'Solo puedes eliminar tus propias creaciones.' });
+        }
 
         // 2. Eliminar de la base de datos
         const eliminada = await Creacion.eliminarCreacion(id);
