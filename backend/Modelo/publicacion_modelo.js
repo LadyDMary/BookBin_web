@@ -28,32 +28,19 @@ async function listarCreaciones({ idMaterial, busqueda } = {}) {
         .eq('borrador', 0)
         .order('id_creacion', { ascending: false });
 
-    async function listarCreaciones({ idMateriales = [], busqueda } = {}) {
-    let query = supabase
-        // ... (el select, .eq y .order se quedan igual)
-
-    if (idMateriales.length > 0) {
-        // 1) Busca qué creaciones usan alguno de los materiales elegidos
+    if (idMaterial) {
+        // 1) Busca los ids de las creaciones que usan ese material
         const { data: relaciones, error: errorRel } = await supabase
             .from('materiales_creaciones')
-            .select('id_creacion, id_materiales')
-            .in('id_materiales', idMateriales);
+            .select('id_creacion')
+            .eq('id_materiales', idMaterial);
 
         if (errorRel) throw errorRel;
 
-        // 2) Junta los materiales de cada creación: { 5: Set{3, 7}, 8: Set{3} }
-        const porCreacion = new Map();
-        for (const r of relaciones) {
-            if (!porCreacion.has(r.id_creacion)) porCreacion.set(r.id_creacion, new Set());
-            porCreacion.get(r.id_creacion).add(r.id_materiales);
-        }
-
-        // 3) Se quedan solo las que tienen TODOS los materiales elegidos
-        const ids = [...porCreacion]
-            .filter(([, mats]) => mats.size === idMateriales.length)
-            .map(([id]) => id);
-
+        const ids = [...new Set(relaciones.map((r) => r.id_creacion))];
         if (ids.length === 0) return [];
+
+        // 2) Trae solo esas creaciones
         query = query.in('id_creacion', ids);
     }
 
@@ -308,4 +295,3 @@ module.exports = {
     eliminarCreacion,
     buscarCreacionesPorNombre,
 };
-}
