@@ -131,6 +131,7 @@ app.delete('/api/admin/verificadores/:id', ...soloAdmin, controladorUsuario.elim
 
 // ---------- Verificadores ----------
 app.get('/api/verificador/creaciones', ...soloVerificadores, controladorVerificador.listarPendientes);
+app.get('/api/verificador/reportes', ...soloVerificadores, controladorVerificador.listarReportes);
 app.get('/api/verificador/creaciones/:id/reporte', ...soloVerificadores, controladorVerificador.obtenerReporte);
 app.post('/api/verificador/creaciones/:id/aprobar', ...soloVerificadores, fijarIdDelToken('id_verificador'), controladorVerificador.aprobar);
 app.post('/api/verificador/creaciones/:id/baneado', ...soloVerificadores, fijarIdDelToken('id_verificador'), controladorVerificador.banear);
