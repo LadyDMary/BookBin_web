@@ -31,6 +31,7 @@ const {
     soloSuPropioId,
     refrescarToken,
     cerrarSesion,
+    identificarOpcional,
 } = require('./middleware/autenticacion');
 
 // Controladores: la lógica de cada parte de la aplicación
@@ -40,10 +41,15 @@ const controladorHerramientas = require('./controlador/herramienta_controlador')
 const controladorUsuario = require('./controlador/usuario_controlador');
 const controladorReportes = require('./controlador/reporte_controlador');
 const controladorFavoritos = require('./controlador/favorito_controlador');
+const controladorVerificador = require('./controlador/verificador_controlador');
+const controladorNotificaciones = require('./controlador/notificacion_controlador');
+
 
 // Grupos de protección que se repiten en varias rutas
 const soloUsuarios = [requiereJWT, requiereTipo('usuario')];
 const soloAdmin = [requiereJWT, requiereTipo('administrador')];
+const soloVerificadores = [requiereJWT, requiereTipo('verificador', 'verificador_lider')];
+const soloLider = [requiereJWT, requiereTipo('verificador_lider')];
 
 const app = express();
 
@@ -89,7 +95,7 @@ app.put('/api/usuarios/:id', ...soloUsuarios, soloSuPropioId('id'), controladorU
 // Públicas: cualquiera puede ver y buscar creaciones (?q=texto&material=id)
 app.get('/api/creaciones', controladorPublicaciones.listarCreaciones);
 app.get('/api/creaciones/usuario/:idUsuario', controladorPublicaciones.listarCreacionesDeUsuario);
-app.get('/api/creaciones/:id', controladorPublicaciones.obtenerCreacion);
+app.get('/api/creaciones/:id', identificarOpcional, controladorPublicaciones.obtenerCreacion);
 
 // Protegidas: el id del autor sale del token, no de lo que mande el navegador.
 // En las rutas con imagen, fijarIdDelToken va DESPUÉS de subida.single(), que es quien llena req.body.
@@ -105,6 +111,11 @@ app.get('/api/herramientas', controladorHerramientas.listarHerramientas);
 // Solo usuarios con sesión pueden reportar; el reporte queda a su nombre
 app.post('/api/creaciones/:id/reportes', ...soloUsuarios, fijarIdDelToken('id_usuario'), controladorReportes.crearReporte);
 
+// ---------- Notificaciones ----------
+// Cada usuario solo ve y marca las suyas (por ejemplo, la razón de un rechazo)
+app.get('/api/notificaciones', ...soloUsuarios, controladorNotificaciones.listar);
+app.put('/api/notificaciones/:id/leida', ...soloUsuarios, controladorNotificaciones.marcarLeida);
+
 // ---------- Favoritos ----------
 // Solo puedes ver tus propios favoritos y guardar/quitar a tu nombre
 app.get('/api/favoritos/:idUsuario', ...soloUsuarios, soloSuPropioId('idUsuario'), controladorFavoritos.listarFavoritos);
@@ -117,6 +128,16 @@ app.post('/api/admin/verificadores', ...soloAdmin, fijarIdDelToken('id_administr
 app.get('/api/admin/verificadores', ...soloAdmin, controladorUsuario.listarVerificadores);
 app.put('/api/admin/verificadores/:id', ...soloAdmin, controladorUsuario.modificarVerificador);
 app.delete('/api/admin/verificadores/:id', ...soloAdmin, controladorUsuario.eliminarVerificador);
+
+// ---------- Verificadores ----------
+app.get('/api/verificador/creaciones', ...soloVerificadores, controladorVerificador.listarPendientes);
+app.get('/api/verificador/creaciones/:id/reporte', ...soloVerificadores, controladorVerificador.obtenerReporte);
+app.post('/api/verificador/creaciones/:id/aprobar', ...soloVerificadores, fijarIdDelToken('id_verificador'), controladorVerificador.aprobar);
+app.post('/api/verificador/creaciones/:id/baneado', ...soloVerificadores, fijarIdDelToken('id_verificador'), controladorVerificador.banear);
+app.post('/api/verificador/creaciones/:id/rechazar', ...soloVerificadores, fijarIdDelToken('id_verificador'), controladorVerificador.rechazar);
+
+// Solo el líder (por ejemplo, apelaciones)
+app.get('/api/verificador/apelaciones', ...soloLider, controladorVerificador.listarApelaciones);
 
 // ---------- Manejo de errores ----------
 // Errores de la subida de imágenes (tamaño, tipo de archivo) y cualquier otro error inesperado

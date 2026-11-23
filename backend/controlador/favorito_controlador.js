@@ -1,4 +1,4 @@
-const FavoritoModelo = require('../modelo/favorito_modelo');
+const FavoritoModelo = require('../Modelo/favorito_modelo');
 
 async function listarFavoritos(req, res) {
     const idUsuario = Number(req.params.idUsuario);
