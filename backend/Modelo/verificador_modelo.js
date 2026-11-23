@@ -147,7 +147,20 @@ async function listarApelaciones() {
     return data.filter((r) => r.mcreacion && r.mcreacion.activo === 1);
 }
 
+// Todos los reportes pendientes (uno por reporte), con quién reportó y la creación reportada
+async function listarReportes() {
+    const { data, error } = await supabase
+        .from('mreportes')
+        .select('id_reporte, id_creacion, motivo, detalle, musuarios (nombre), mcreacion (nombre, imagen, activo)')
+        .eq('estado', 'pendiente')
+        .order('id_reporte', { ascending: true });
+
+    if (error) throw error;
+    return data.filter((r) => r.mcreacion && r.mcreacion.activo === 1);
+}
+
 module.exports = {
+    listarReportes,
     listarPendientes,
     obtenerCreacionActiva,
     obtenerReportePendiente,

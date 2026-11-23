@@ -89,6 +89,16 @@ async function rechazar(req, res) {
     }
 }
 
+// GET /api/verificador/reportes
+async function listarReportes(req, res) {
+    try {
+        return res.json(await Verificador.listarReportes());
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'No se pudieron cargar los reportes.' });
+    }
+}
+
 // GET /api/verificador/apelaciones (solo líder)
 async function listarApelaciones(req, res) {
     try {
@@ -99,4 +109,4 @@ async function listarApelaciones(req, res) {
     }
 }
 
-module.exports = { listarPendientes, obtenerReporte, aprobar, banear, rechazar, listarApelaciones };
+module.exports = { listarReportes, listarPendientes, obtenerReporte, aprobar, banear, rechazar, listarApelaciones };
