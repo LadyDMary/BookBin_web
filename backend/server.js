@@ -46,6 +46,8 @@ const soloUsuarios = [requiereJWT, requiereTipo('usuario')];
 const soloAdmin = [requiereJWT, requiereTipo('administrador')];
 
 const app = express();
+// Render pone un proxy (HTTPS) delante: sin esto la cookie "secure" de la sesión no se envía
+app.set('trust proxy', 1);
 
 // Permite leer el cuerpo de las peticiones en formato JSON (req.body)
 app.use(express.json());
@@ -63,7 +65,6 @@ app.use(session({
     cookie: {
         httpOnly: true,        // el JavaScript de la página no puede leer la cookie
         sameSite: 'lax',       // la cookie no viaja en peticiones POST desde otros sitios
-        secure: process.env.NODE_ENV === 'production', // solo por HTTPS cuando esté publicado
         maxAge: 1000 * 60 * 60 * 24, // 1 día
     },
 }));

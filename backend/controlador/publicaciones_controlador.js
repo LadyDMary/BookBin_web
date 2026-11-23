@@ -1,4 +1,4 @@
-const Creacion = require('../modelo/publicacion_modelo');
+const Creacion = require('../Modelo/publicacion_modelo');
 const Validacion = require('../validaciones');
 const { subirImagen, borrarImagen } = require('../almacenamiento_imagenes');
 

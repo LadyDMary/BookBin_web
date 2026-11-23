@@ -1,5 +1,5 @@
 const Reporte = require('../Modelo/reporte_modelo');
-const Creacion = require('../modelo/publicacion_modelo');
+const Creacion = require('../Modelo/publicacion_modelo');
 const { validarReporte } = require('../validaciones');
 
 async function crearReporte(req, res) {
