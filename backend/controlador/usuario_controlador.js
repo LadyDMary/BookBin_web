@@ -18,7 +18,7 @@ const {
     listarVerificadoresActivos,
     desactivarVerificador,
     correoEnUso,
-} = require('../modelo/usuario_modelo');
+} = require('../Modelo/usuario_modelo');
 // --- REGISTRARSE ---
 async function registrar(req, res) {
     try {
