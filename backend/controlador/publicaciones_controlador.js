@@ -38,9 +38,15 @@ function leerCantidades(valor, idMateriales) {
 
 async function listarCreaciones(req, res) {
     try {
-        const idMaterial = Number(req.query.material) || null;
+                // ?material=3,7 → [3, 7] (solo enteros positivos, sin repetidos, máximo 10)
+        const idMateriales = [...new Set(
+            String(req.query.material || '')
+                .split(',')
+                .map(Number)
+                .filter((n) => Number.isInteger(n) && n > 0)
+        )].slice(0, 10);
         const busqueda = (req.query.q || '').toString().trim().slice(0, 50);
-        const creaciones = await Creacion.listarCreaciones({ idMaterial, busqueda });
+        const creaciones = await Creacion.listarCreaciones({ idMateriales, busqueda });
         res.json(creaciones);
     } catch (error) {
         console.error(error);
