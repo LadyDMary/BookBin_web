@@ -30,6 +30,18 @@ async function listarDeUsuario(idUsuario) {
     return data;
 }
 
+async function obtenerDeUsuario(idNotificacion, idUsuario) {
+    const { data, error } = await supabase
+        .from('mnotificaciones')
+        .select('id_notificacion, id_creacion, tipo, mensaje')
+        .eq('id_notificacion', idNotificacion)
+        .eq('id_usuario', idUsuario)
+        .maybeSingle();
+
+    if (error) throw error;
+    return data;
+}
+
 // Solo marca la notificación si es del usuario
 async function marcarLeida(idNotificacion, idUsuario) {
     const { data, error } = await supabase
@@ -44,4 +56,4 @@ async function marcarLeida(idNotificacion, idUsuario) {
     return Boolean(data);
 }
 
-module.exports = { crearNotificacion, listarDeUsuario, marcarLeida };
+module.exports = { crearNotificacion, listarDeUsuario, obtenerDeUsuario, marcarLeida };

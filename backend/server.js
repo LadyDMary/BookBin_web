@@ -114,6 +114,7 @@ app.post('/api/creaciones/:id/reportes', ...soloUsuarios, fijarIdDelToken('id_us
 // ---------- Notificaciones ----------
 // Cada usuario solo ve y marca las suyas (por ejemplo, la razón de un rechazo)
 app.get('/api/notificaciones', ...soloUsuarios, controladorNotificaciones.listar);
+app.post('/api/notificaciones/:id/apelar', ...soloUsuarios, controladorNotificaciones.apelar);
 app.put('/api/notificaciones/:id/leida', ...soloUsuarios, controladorNotificaciones.marcarLeida);
 
 // ---------- Favoritos ----------
@@ -134,11 +135,14 @@ app.get('/api/verificador/creaciones', ...soloVerificadores, controladorVerifica
 app.get('/api/verificador/reportes', ...soloVerificadores, controladorVerificador.listarReportes);
 app.get('/api/verificador/creaciones/:id/reporte', ...soloVerificadores, controladorVerificador.obtenerReporte);
 app.post('/api/verificador/creaciones/:id/aprobar', ...soloVerificadores, fijarIdDelToken('id_verificador'), controladorVerificador.aprobar);
+app.post('/api/verificador/creaciones/:id/descartar', ...soloVerificadores, controladorVerificador.descartar);
 app.post('/api/verificador/creaciones/:id/baneado', ...soloVerificadores, fijarIdDelToken('id_verificador'), controladorVerificador.banear);
 app.post('/api/verificador/creaciones/:id/rechazar', ...soloVerificadores, fijarIdDelToken('id_verificador'), controladorVerificador.rechazar);
 
-// Solo el líder (por ejemplo, apelaciones)
-app.get('/api/verificador/apelaciones', ...soloLider, controladorVerificador.listarApelaciones);
+// Apelaciones de autores a un rechazo: las ven todos los verificadores
+app.get('/api/verificador/apelaciones', ...soloVerificadores, controladorVerificador.listarApelaciones);
+app.get('/api/verificador/apelaciones/:id', ...soloVerificadores, controladorVerificador.obtenerApelacion);
+app.post('/api/verificador/apelaciones/:id/mantener', ...soloVerificadores, controladorVerificador.mantenerRechazo);
 
 // ---------- Manejo de errores ----------
 // Errores de la subida de imágenes (tamaño, tipo de archivo) y cualquier otro error inesperado

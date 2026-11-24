@@ -1,5 +1,6 @@
 const Creacion = require("../Modelo/publicacion_modelo");
 const Validacion = require("../validaciones");
+const Verificacion = require("../Modelo/verificacion_modelo");
 const { subirImagen, borrarImagen } = require("../almacenamiento_imagenes");
 
 function leerMateriales(valor) {
@@ -245,6 +246,7 @@ async function actualizarCreacion(req, res) {
     }
 
     await Creacion.actualizarCreacion(id, cambios);
+    if (reenviada) await Verificacion.marcarCorregidas(id);
     if (enviaronMateriales) {
       await Creacion.actualizarMaterialesCreacion(id, idMateriales, cantidades);
     }

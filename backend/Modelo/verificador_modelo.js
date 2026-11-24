@@ -1,5 +1,7 @@
 const supabase = require('../bd-supabase');
 const Notificaciones = require('./notificacion_modelo');
+const Apelaciones = require('./apelacion_modelo');
+const Verificaciones = require('./verificacion_modelo');
 
 // Creaciones por verificar: publicadas sin aprobar, y rechazadas que siguen sin corregirse
 async function listarPendientes() {
@@ -63,6 +65,7 @@ async function aprobarCreacion(idCreacion, idVerificador) {
         titulo: `Tu creación "${data.nombre}" fue aprobada`,
         mensaje: 'Ya está publicada y cualquier usuario puede verla.',
     });
+    await Apelaciones.cerrarDeCreacion(idCreacion);
     await cerrarReportes(idCreacion);
     return true;
 }
@@ -80,6 +83,7 @@ async function banearCreacion(idCreacion, idVerificador, razon) {
     if (error) throw error;
     if (!data) return false;
 
+    await Apelaciones.cerrarDeCreacion(idCreacion);
     await cerrarReportes(idCreacion);
     return true;
 }
@@ -115,12 +119,16 @@ async function rechazarCreacion(idCreacion, idVerificador, razon) {
     if (error) throw error;
     if (!data) return false;
 
+    // Cada rechazo queda registrado en dverificacion (la apelación se liga a esa fila)
+    await Verificaciones.crear({ idCreacion, idVerificador, comentario: razon });
+
     await Notificaciones.crearNotificacion({
         idUsuario: data.id_usuario,
         idCreacion: data.id_creacion,
         titulo: `Tu creación "${data.nombre}" fue rechazada`,
         mensaje: razon,
     });
+    await Apelaciones.cerrarDeCreacion(idCreacion);
     await cerrarReportes(idCreacion);
     return true;
 }
@@ -135,16 +143,9 @@ async function cerrarReportes(idCreacion) {
     if (error) throw error;
 }
 
-// Creaciones con reportes pendientes (apelaciones, solo líder)
+// Apelaciones pendientes de autores que impugnan un rechazo
 async function listarApelaciones() {
-    const { data, error } = await supabase
-        .from('mreportes')
-        .select('id_reporte, id_creacion, motivo, detalle, mcreacion (nombre, imagen, activo)')
-        .eq('estado', 'pendiente')
-        .order('id_reporte', { ascending: true });
-
-    if (error) throw error;
-    return data.filter((r) => r.mcreacion && r.mcreacion.activo === 1);
+    return Apelaciones.listarPendientes();
 }
 
 // Todos los reportes pendientes (uno por reporte), con quién reportó y la creación reportada
@@ -159,7 +160,41 @@ async function listarReportes() {
     return data.filter((r) => r.mcreacion && r.mcreacion.activo === 1);
 }
 
+// Descarta los reportes pendientes: la creación se queda como está (sin avisar al autor)
+async function descartarReportes(idCreacion) {
+    const creacion = await obtenerCreacionActiva(idCreacion);
+    if (!creacion) return false;
+
+    await cerrarReportes(idCreacion);
+    return true;
+}
+
+// Mantiene el rechazo: la creación no cambia, la apelación queda resuelta y el autor recibe la respuesta
+async function mantenerRechazo(idApelacion) {
+    const apelacion = await Apelaciones.resolver(idApelacion);
+    if (!apelacion) return false;
+
+    const { data: creacion, error } = await supabase
+        .from('mcreacion')
+        .select('nombre')
+        .eq('id_creacion', apelacion.id_creacion)
+        .maybeSingle();
+    if (error) throw error;
+
+    await Notificaciones.crearNotificacion({
+        idUsuario: apelacion.id_usuario,
+        idCreacion: apelacion.id_creacion,
+        tipo: 'apelacion',
+        titulo: `Revisamos tu apelación de "${creacion ? creacion.nombre : 'tu creación'}"`,
+        mensaje: 'Se mantiene el rechazo. Puedes corregir tu creación y volver a enviarla.',
+    });
+    return true;
+}
+
 module.exports = {
+    mantenerRechazo,
+    obtenerApelacion: Apelaciones.obtenerApelacion,
+    descartarReportes,
     listarReportes,
     listarPendientes,
     obtenerCreacionActiva,

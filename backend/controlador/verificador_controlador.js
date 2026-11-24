@@ -89,6 +89,22 @@ async function rechazar(req, res) {
     }
 }
 
+// POST /api/verificador/creaciones/:id/descartar
+async function descartar(req, res) {
+    try {
+        const idCreacion = idValido(req.params.id);
+        if (!idCreacion) return res.status(400).json({ error: 'Id de creación no válido.' });
+
+        const ok = await Verificador.descartarReportes(idCreacion);
+        if (!ok) return res.status(404).json({ error: 'No se encontró la creación.' });
+
+        return res.json({ mensaje: 'Reportes descartados.' });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'No se pudieron descartar los reportes.' });
+    }
+}
+
 // GET /api/verificador/reportes
 async function listarReportes(req, res) {
     try {
@@ -96,6 +112,36 @@ async function listarReportes(req, res) {
     } catch (error) {
         console.error(error);
         return res.status(500).json({ error: 'No se pudieron cargar los reportes.' });
+    }
+}
+
+// GET /api/verificador/apelaciones/:id (solo líder)
+async function obtenerApelacion(req, res) {
+    try {
+        const id = idValido(req.params.id);
+        if (!id) return res.status(400).json({ error: 'Id de apelación no válido.' });
+
+        const apelacion = await Verificador.obtenerApelacion(id);
+        if (!apelacion) return res.status(404).json({ error: 'No se encontró la apelación.' });
+        return res.json(apelacion);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'No se pudo cargar la apelación.' });
+    }
+}
+
+// POST /api/verificador/apelaciones/:id/mantener (solo líder): el rechazo se queda como está
+async function mantenerRechazo(req, res) {
+    try {
+        const id = idValido(req.params.id);
+        if (!id) return res.status(400).json({ error: 'Id de apelación no válido.' });
+
+        const ok = await Verificador.mantenerRechazo(id);
+        if (!ok) return res.status(404).json({ error: 'No se encontró la apelación pendiente.' });
+        return res.json({ mensaje: 'Apelación resuelta: se mantiene el rechazo.' });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'No se pudo resolver la apelación.' });
     }
 }
 
@@ -109,4 +155,4 @@ async function listarApelaciones(req, res) {
     }
 }
 
-module.exports = { listarReportes, listarPendientes, obtenerReporte, aprobar, banear, rechazar, listarApelaciones };
+module.exports = { obtenerApelacion, mantenerRechazo, descartar, listarReportes, listarPendientes, obtenerReporte, aprobar, banear, rechazar, listarApelaciones };
