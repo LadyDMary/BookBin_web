@@ -50,6 +50,8 @@ const soloUsuarios = [requiereJWT, requiereTipo('usuario')];
 const soloAdmin = [requiereJWT, requiereTipo('administrador')];
 const soloVerificadores = [requiereJWT, requiereTipo('verificador', 'verificador_lider')];
 const soloLider = [requiereJWT, requiereTipo('verificador_lider')];
+const soloVerificadorNormal = [requiereJWT, requiereTipo('verificador')];
+
 
 const app = express();
 // Render pone un proxy (HTTPS) delante: sin esto la cookie "secure" de la sesión no se envía
@@ -132,18 +134,30 @@ app.put('/api/admin/verificadores/:id', ...soloAdmin, controladorUsuario.modific
 app.delete('/api/admin/verificadores/:id', ...soloAdmin, controladorUsuario.eliminarVerificador);
 
 // ---------- Verificadores ----------
-app.get('/api/verificador/creaciones', ...soloVerificadores, controladorVerificador.listarPendientes);
-app.get('/api/verificador/reportes', ...soloVerificadores, controladorVerificador.listarReportes);
-app.get('/api/verificador/creaciones/:id/reporte', ...soloVerificadores, controladorVerificador.obtenerReporte);
-app.post('/api/verificador/creaciones/:id/aprobar', ...soloVerificadores, fijarIdDelToken('id_verificador'), controladorVerificador.aprobar);
-app.post('/api/verificador/creaciones/:id/descartar', ...soloVerificadores, controladorVerificador.descartar);
-app.post('/api/verificador/creaciones/:id/baneado', ...soloVerificadores, fijarIdDelToken('id_verificador'), controladorVerificador.banear);
-app.post('/api/verificador/creaciones/:id/rechazar', ...soloVerificadores, fijarIdDelToken('id_verificador'), controladorVerificador.rechazar);
+// Verificador normal: elige creaciones del inicio y las revisa en "Por verificar".
+// OJO: las rutas fijas (/tomar) van ANTES que las que llevan :id
+app.get('/api/verificador/creaciones', ...soloVerificadorNormal, controladorVerificador.listarPendientes);
+app.get('/api/verificador/mis-creaciones', ...soloVerificadorNormal, controladorVerificador.listarMisCreaciones);
+app.post('/api/verificador/creaciones/tomar', ...soloVerificadorNormal, controladorVerificador.tomarCreaciones);
+app.post('/api/verificador/creaciones/:id/soltar', ...soloVerificadorNormal, controladorVerificador.soltarCreacion);
 
-// Apelaciones de autores a un rechazo: las ven todos los verificadores
-app.get('/api/verificador/apelaciones', ...soloVerificadores, controladorVerificador.listarApelaciones);
-app.get('/api/verificador/apelaciones/:id', ...soloVerificadores, controladorVerificador.obtenerApelacion);
-app.post('/api/verificador/apelaciones/:id/mantener', ...soloVerificadores, controladorVerificador.mantenerRechazo);
+// Decisiones: las usan los dos tipos; el controlador revisa que la tenga asignada
+// (ya no hace falta fijarIdDelToken: el controlador usa req.usuario.id)
+app.post('/api/verificador/creaciones/:id/aprobar', ...soloVerificadores, controladorVerificador.aprobar);
+app.post('/api/verificador/creaciones/:id/rechazar', ...soloVerificadores, controladorVerificador.rechazar);
+app.post('/api/verificador/creaciones/:id/baneado', ...soloVerificadores, controladorVerificador.banear);
+app.post('/api/verificador/creaciones/:id/descartar', ...soloLider, controladorVerificador.descartar);
+
+// Líder: elige reportes y apelaciones del inicio y los revisa en "Por revisar"
+app.post('/api/verificador/tomar', ...soloLider, controladorVerificador.tomarRevision);
+app.get('/api/verificador/por-revisar', ...soloLider, controladorVerificador.listarPorRevisar);
+app.get('/api/verificador/reportes', ...soloLider, controladorVerificador.listarReportes);
+app.get('/api/verificador/creaciones/:id/reporte', ...soloLider, controladorVerificador.obtenerReporte);
+app.post('/api/verificador/reportes/:id/soltar', ...soloLider, controladorVerificador.soltarReportes);
+app.get('/api/verificador/apelaciones', ...soloLider, controladorVerificador.listarApelaciones);
+app.get('/api/verificador/apelaciones/:id', ...soloLider, controladorVerificador.obtenerApelacion);
+app.post('/api/verificador/apelaciones/:id/mantener', ...soloLider, controladorVerificador.mantenerApelacion);
+app.post('/api/verificador/apelaciones/:id/soltar', ...soloLider, controladorVerificador.soltarApelacion);
 
 // ---------- Manejo de errores ----------
 // Errores de la subida de imágenes (tamaño, tipo de archivo) y cualquier otro error inesperado
