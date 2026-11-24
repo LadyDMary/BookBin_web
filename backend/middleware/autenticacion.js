@@ -90,6 +90,36 @@ async function requiereJWT(req, res, next) {
     next();
 }
 
+// Como requiereJWT, pero sin bloquear: si hay token y sesión válidos llena req.usuario;
+// si no, la petición sigue como visitante. Solo un token vencido da 401, para que el front lo renueve.
+async function identificarOpcional(req, res, next) {
+    const encabezado = req.headers.authorization || '';
+    if (!encabezado.startsWith('Bearer ')) return next();
+
+    try {
+        const datos = jwt.verify(encabezado.slice('Bearer '.length), SECRETO_JWT, { algorithms: ['HS256'] });
+
+        if (await Tokens.estaRevocado(datos.jti)) return next();
+
+        const sesion = req.session && req.session.usuario;
+        if (!sesion || sesion.id !== Number(datos.sub) || sesion.tipo !== datos.tipo) return next();
+
+        req.usuario = {
+            id: Number(datos.sub),
+            tipo: datos.tipo,
+            nombre: datos.nombre,
+            jti: datos.jti,
+            exp: datos.exp,
+        };
+    } catch (error) {
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({ error: 'Token expirado', codigo: 'TOKEN_EXPIRADO' });
+        }
+        // Token inválido o error de la lista negra: se trata como visitante
+    }
+    next();
+}
+
 // 403: hay sesión y token válidos, pero el tipo de cuenta no tiene permiso
 function requiereTipo(...tipos) {
     return (req, res, next) => {
@@ -165,4 +195,5 @@ module.exports = {
     soloSuPropioId,
     refrescarToken,
     cerrarSesion,
+    identificarOpcional,
 };

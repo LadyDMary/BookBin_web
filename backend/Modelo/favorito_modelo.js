@@ -9,7 +9,7 @@ async function obtenerFavoritos(idUsuario) {
             id_usuarios,
             id_creacion,
             mcreacion!inner (
-                id_creacion, nombre, descripcion, imagen, id_usuario, activo,
+                id_creacion, nombre, descripcion, imagen, id_usuario, activo, aprovado,
                 materiales_creaciones (
                     dmateriales ( id_materiales, nombre )
                 )
@@ -17,6 +17,7 @@ async function obtenerFavoritos(idUsuario) {
         `)
         .eq('id_usuarios', idUsuario)
         .eq('activo', 1)
+        .eq('mcreacion.aprovado', 1)
         .eq('mcreacion.activo', 1)
         .order('id_favoritos', { ascending: false });
 

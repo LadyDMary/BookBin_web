@@ -26,6 +26,7 @@ async function listarCreaciones({ idMaterial, busqueda } = {}) {
         `)
         .eq('activo', 1)
         .eq('borrador', 0)
+        .eq('aprovado', 1)
         .order('id_creacion', { ascending: false });
 
     if (idMaterial) {
@@ -155,12 +156,15 @@ async function crearCreacion({ nombre, descripcion, instrucciones, idUsuario, im
 }
 //funciones para actualizar la creacion
 
-async function actualizarCreacion(id, { nombre, descripcion, instrucciones, imagen }) {
+async function actualizarCreacion(id, { nombre, descripcion, instrucciones, imagen, borrador, aprovado, corregida }) {
     const cambios = {};
     if (nombre !== undefined) cambios.nombre = nombre;
     if (descripcion !== undefined) cambios.descripcion = descripcion;
     if (instrucciones !== undefined) cambios.instrucciones = instrucciones;
     if (imagen !== undefined) cambios.imagen = imagen;
+    if (borrador !== undefined) cambios.borrador = borrador;
+    if (aprovado !== undefined) cambios.aprovado = aprovado;
+    if (corregida !== undefined) cambios.corregida = corregida;
 
     if (Object.keys(cambios).length === 0) return false;
 

@@ -1,4 +1,4 @@
-const MaterialModelo = require('../modelo/material_modelo');
+const MaterialModelo = require('../Modelo/material_modelo');
 
 async function listarMateriales(req, res) {
     try {
