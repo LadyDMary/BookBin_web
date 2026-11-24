@@ -5,7 +5,7 @@ const supabase = require('../bd-supabase');
 //     id_notificacion bigint generated always as identity primary key,
 //     id_usuario      integer not null,
 //     id_creacion     integer,
-//     tipo            text not null default 'rechazo',   -- 'rechazo' | 'aprobacion'
+//     tipo            text not null default 'rechazo',   -- 'rechazo' | 'aprobacion' | 'apelacion' | 'baneo'
 //     titulo          text not null,
 //     mensaje         text not null,
 //     leida           smallint not null default 0,
@@ -56,4 +56,21 @@ async function marcarLeida(idNotificacion, idUsuario) {
     return Boolean(data);
 }
 
-module.exports = { crearNotificacion, listarDeUsuario, obtenerDeUsuario, marcarLeida };
+// De las creaciones dadas, los ids de las que fueron baneadas (activo = 0 con razón de baneo).
+// Sirve para que las notificaciones viejas de rechazo ya no ofrezcan corregir ni apelar.
+async function creacionesBaneadas(idsCreacion) {
+    const ids = [...new Set(idsCreacion.filter(Boolean))];
+    if (ids.length === 0) return new Set();
+
+    const { data, error } = await supabase
+        .from('mcreacion')
+        .select('id_creacion')
+        .in('id_creacion', ids)
+        .eq('activo', 0)
+        .not('razon_baneo', 'is', null);
+
+    if (error) throw error;
+    return new Set(data.map((c) => c.id_creacion));
+}
+
+module.exports = { crearNotificacion, listarDeUsuario, obtenerDeUsuario, marcarLeida, creacionesBaneadas };

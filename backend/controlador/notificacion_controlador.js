@@ -10,7 +10,13 @@ async function listar(req, res) {
             Notificacion.listarDeUsuario(req.usuario.id),
             Apelacion.notificacionesApeladas(req.usuario.id),
         ]);
-        return res.json(lista.map((n) => ({ ...n, apelada: apeladas.has(n.id_notificacion) })));
+        const baneadas = await Notificacion.creacionesBaneadas(lista.map((n) => n.id_creacion));
+        return res.json(lista.map((n) => ({
+            ...n,
+            apelada: apeladas.has(n.id_notificacion),
+            // Notificaciones de una creación baneada: ya no se puede corregir ni apelar
+            baneada: n.tipo === 'baneo' || baneadas.has(n.id_creacion),
+        })));
     } catch (error) {
         console.error(error);
         return res.status(500).json({ error: 'No se pudieron cargar las notificaciones.' });

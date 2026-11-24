@@ -3,15 +3,18 @@ const Notificaciones = require('./notificacion_modelo');
 const Apelaciones = require('./apelacion_modelo');
 const Verificaciones = require('./verificacion_modelo');
 
-// Creaciones por verificar: publicadas sin aprobar, y rechazadas que siguen sin corregirse
+// Creaciones por verificar: solo las publicadas sin aprobar (incluye las rechazadas que el autor ya corrigió y reenvió).
+// Las rechazadas sin corregir nunca aparecen.
+// Una rechazada sin corregir queda como borrador (borrador = 1), así que no aparece hasta que se corrija.
 async function listarPendientes() {
     const { data, error } = await supabase
         .from('mcreacion')
         .select('id_creacion, nombre, descripcion, imagen, id_usuario, aprovado, veces_rechazada, corregida, musuarios (nombre)')
         .eq('activo', 1)
         .eq('aprovado', 0)
-        // Publicadas, o rechazadas que el autor todavía no corrige (siguen como borrador)
-        .or('borrador.eq.0,veces_rechazada.gt.0')
+        .eq('borrador', 0)
+        // Nunca rechazadas, o rechazadas que el autor ya corrigió (corregida = 1)
+        .or('veces_rechazada.is.null,veces_rechazada.eq.0,corregida.eq.1')
         .order('id_creacion', { ascending: true });
 
     if (error) throw error;
@@ -77,12 +80,20 @@ async function banearCreacion(idCreacion, idVerificador, razon) {
         .update({ activo: 0, aprovado: 0, id_verificador: idVerificador, razon_baneo: razon })
         .eq('id_creacion', idCreacion)
         .eq('activo', 1)
-        .select('id_creacion')
+        .select('id_creacion, nombre, id_usuario')
         .maybeSingle();
 
     if (error) throw error;
     if (!data) return false;
 
+    // El autor recibe una notificación de baneo (sin opción de corregir ni apelar)
+    await Notificaciones.crearNotificacion({
+        idUsuario: data.id_usuario,
+        idCreacion: data.id_creacion,
+        tipo: 'baneo',
+        titulo: `Tu creación "${data.nombre}" fue baneada`,
+        mensaje: razon,
+    });
     await Apelaciones.cerrarDeCreacion(idCreacion);
     await cerrarReportes(idCreacion);
     return true;
