@@ -1,7 +1,7 @@
 # BookBin – Backend
 
 API de **BookBin**, una plataforma para compartir manualidades hechas con materiales reciclados.
-Proyecto aula de Programación Intermedia · CECyT 9 "Juan de Dios Bátiz" · Grupo 4IV7 · Equipo 5.
+Proyecto aula de Programación Intermedia · CECyT 9 "Juan de Dios Bátiz" · Grupo 5IV7 · Equipo 6.
 
 ## Integrantes
 - Arellano Ramírez Guadalupe Donaji
